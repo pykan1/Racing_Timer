@@ -67,7 +67,7 @@ class PlayerScreen : Screen {
                                     modifier = Modifier.size(24.dp)
                                 )
                                 Text(
-                                    text = "${it.driverId} ${it.name} ${it.lastName}",
+                                    text = "${it.driverNumber} ${it.name} ${it.lastName}",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.W400,
                                     modifier = Modifier
@@ -117,6 +117,23 @@ class PlayerScreen : Screen {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
                         OutlinedTextField(
                             modifier = Modifier.fillMaxWidth(),
+                            value = state.driverNumber?.toString().orEmpty(),
+                            onValueChange = {
+                                viewModel.changeDriverNumber(it)
+                            },
+                            placeholder = {
+                                Text(
+                                    text = "Номер участника",
+                                    style = MaterialTheme.typography.titleSmall.copy(
+                                        color = MaterialTheme.typography.titleSmall.color.copy(alpha = 0.5f)
+                                    )
+                                )
+                            })
+
+                        OutlinedTextField(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp),
                             value = state.driverName,
                             onValueChange = {
                                 viewModel.changeName(it)
@@ -130,7 +147,8 @@ class PlayerScreen : Screen {
                                 )
                             })
 
-                        OutlinedTextField(value = state.driverLastName, onValueChange = {
+                        OutlinedTextField(value = state.driverLastName,
+                            onValueChange = {
                             viewModel.changeLastName(it)
                         }, modifier = Modifier
                             .fillMaxWidth()

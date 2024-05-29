@@ -84,7 +84,7 @@ class RaceViewModel @Inject constructor(private val raceRepositoryImpl: RaceRepo
             setState(
                 state.value.copy(
                     circles = circles,
-                    driversIdStack = state.value.driversIdStack + driverUI.driverId
+                    driversIdStack = state.value.driversIdStack + driverUI.driverNumber
                 )
             )
         }
@@ -124,19 +124,16 @@ class RaceViewModel @Inject constructor(private val raceRepositoryImpl: RaceRepo
 
     private fun saveRace() {
         viewModelScope.launch {
-            println(state.value.race)
-            println("---------")
-            state.value.circles.forEach {
-                println(it)
-            }
-            println("---------")
-            state.value.selectDrivers.forEach {
-                println(it)
-            }
             raceRepositoryImpl.saveRace(
-                race = state.value.race,
+                race = state.value.race.copy(duration = state.value.seconds),
                 circles = state.value.circles,
-                selectUsers = state.value.selectDrivers
+                selectUsers = state.value.selectDrivers,
+                raceStack = state.value.driversIdStack
+            )
+            setState(
+                state.value.copy(
+                    saveRace = true
+                )
             )
         }
     }

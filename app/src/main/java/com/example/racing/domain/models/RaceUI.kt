@@ -6,7 +6,8 @@ data class RaceUI(
     val raceTitle: String,
     val createRace: Long,
     val duration: Long,
-    val finish: Boolean
+    val finish: Boolean,
+    val stackFinish: List<Long>
 ) {
     companion object {
         val Default = RaceUI(
@@ -14,7 +15,8 @@ data class RaceUI(
             raceTitle = "",
             createRace = 0,
             duration = 0,
-            finish = false
+            finish = false,
+            stackFinish = emptyList()
         )
     }
 }

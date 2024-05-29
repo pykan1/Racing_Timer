@@ -15,7 +15,10 @@ interface CircleRepository {
     suspend fun insertLap(circleModel: CircleModel): Long
 
     @Query("SELECT * FROM circle WHERE raceId = :raceId")
-    suspend fun getLapsForRace(raceId: Long): List<CircleWithDrivers>
+    suspend fun getLapsForRace(raceId: Long): List<CircleModel>
+
+    @Query("SELECT * FROM circleDriverCrossRef WHERE circleId = :circleId")
+    suspend fun getLapsWithDriversForRace(circleId: Long): List<CircleDriverCrossRef>
 
     @Query("SELECT * FROM circle WHERE circleId = :lapId")
     suspend fun getLapById(lapId: Long): CircleModel

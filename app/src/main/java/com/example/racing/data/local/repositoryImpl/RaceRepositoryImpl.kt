@@ -28,9 +28,18 @@ class RaceRepositoryImpl @Inject constructor(
     suspend fun getRaceDetail(raceId: Long): RaceDetailUI {
         val race = raceRepository.getRaceWithDriversById(raceId)
         val laps = circleRepository.getLapsForRace(raceId)
+        val circleDrivers = mutableListOf<CircleDriverCrossRef>()
+        laps.forEach {
+            val driversCircle = circleRepository.getLapsWithDriversForRace(it.circleId)
+            circleDrivers.addAll(driversCircle)
+        }
+        val drivers = driverRepository.getDrivers()
         return RaceDetailUI(
             raceUI = race.toUI(),
-            circleUI = laps.map { it.toUI() },
+            circles = laps.map { circle ->
+                val filterDrivers = circleDrivers.filter { circle.circleId == it.circleId }
+                circle.toUI(filterDrivers, drivers)
+            },
             drivers = race.drivers.map { it.toUI() }
         )
     }
@@ -56,7 +65,8 @@ class RaceRepositoryImpl @Inject constructor(
                 raceTitle = title,
                 createRace = getCurrentTimeInMillis(),
                 duration = 0,
-                finish = false
+                finish = false,
+                stackFinish = ""
             )
         )
         drivers.forEach {
@@ -77,7 +87,8 @@ class RaceRepositoryImpl @Inject constructor(
         driverRepository.insertDriver(
             DriverModel(
                 name = driverUI.name,
-                lastName = driverUI.lastName
+                lastName = driverUI.lastName,
+                driverNumber = driverUI.driverNumber
             )
         )
     }
@@ -87,33 +98,47 @@ class RaceRepositoryImpl @Inject constructor(
             DriverModel(
                 driverId = driverUI.driverId,
                 name = driverUI.name,
-                lastName = driverUI.lastName
+                lastName = driverUI.lastName,
+                driverNumber = driverUI.driverNumber
             )
         )
     }
 
-    suspend fun saveRace(race: RaceUI, circles: List<CircleUI>, selectUsers: List<DriverCircleUI>) {
+    suspend fun saveRace(
+        race: RaceUI,
+        circles: List<CircleUI>,
+        selectUsers: List<DriverCircleUI>,
+        raceStack: List<Long>
+    ) {
+        println("+++++++++++++++")
+        circles.forEach {
+            println(it)
+        }
+        println("+++++++++++++++")
         raceRepository.updateRace(
             RaceModel(
                 raceId = race.raceId,
                 createRace = race.createRace,
                 raceTitle = race.raceTitle,
                 duration = race.duration,
-                finish = true
+                finish = true,
+                stackFinish = raceStack.joinToString(separator = ", ")
             )
         )
         circles.forEach {
+            val circleModel = CircleModel(
+                raceId = race.raceId,
+                isPenalty = it.isPenalty
+            )
             val circleId = circleRepository.insertLap(
-                CircleModel(
-                    raceId = race.raceId,
-                    isPenalty = it.isPenalty
-                )
+                circleModel
             )
             it.drivers.forEach {
                 circleRepository.insertCircleDriver(
                     CircleDriverCrossRef(
                         circleId = circleId,
-                        driverId = it.driverId
+                        driverId = it.driverId,
+                        duration = it.duration,
                     )
                 )
             }

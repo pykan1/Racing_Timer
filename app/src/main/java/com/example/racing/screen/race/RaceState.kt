@@ -15,12 +15,13 @@ data class RaceState(
     val circles: List<CircleUI>,
     val driversAlert: Boolean,
     val startTimer: Boolean,
-    val driversIdStack: List<Long>
+    val driversIdStack: List<Long>,
+    val saveRace: Boolean
 ) : UiState {
     companion object {
         val InitState = RaceState(
             RaceUI.Default,
-            "", emptyList(), emptyList(), false, 0, emptyList(), false, false, emptyList()
+            "", emptyList(), emptyList(), false, 0, emptyList(), false, false, emptyList(), saveRace = false
         )
     }
 }

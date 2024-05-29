@@ -51,6 +51,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.example.racing.ext.formatTimestampToDateTimeString
 import com.example.racing.screen.base.DefaultBoxPage
 import com.example.racing.screen.race.RaceScreen
+import com.example.racing.screen.raceTable.RaceTableScreen
 
 class RacingScreen : Screen {
     @Composable
@@ -78,7 +79,7 @@ class RacingScreen : Screen {
                             .fillMaxWidth()
                             .clickable {
                                 if (it.finish) {
-
+                                    navigator.push(RaceTableScreen(it.raceId))
                                 } else {
                                     navigator.push(RaceScreen(it.raceId))
                                 }
@@ -94,9 +95,11 @@ class RacingScreen : Screen {
                                     contentDescription = null,
                                     modifier = Modifier.size(32.dp)
                                 )
-                                Column(modifier = Modifier
-                                    .padding(start = 16.dp)
-                                    .weight(1f)) {
+                                Column(
+                                    modifier = Modifier
+                                        .padding(start = 16.dp)
+                                        .weight(1f)
+                                ) {
                                     Text(
                                         text = if (it.raceTitle.isBlank()) "Заезд от ${it.createRace.formatTimestampToDateTimeString()}" else
                                             it.raceTitle,
@@ -171,7 +174,9 @@ class RacingScreen : Screen {
                         })
 
                         LazyColumn(
-                            Modifier.fillMaxWidth().padding(top = 10.dp),
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 10.dp),
                             verticalArrangement = Arrangement.spacedBy(15.dp),
                             contentPadding = PaddingValues(vertical = 16.dp)
                         ) {
@@ -190,7 +195,7 @@ class RacingScreen : Screen {
                                     )
 
                                     Text(
-                                        text = "${driver.driverId} ${driver.lastName} ${driver.name}",
+                                        text = "${driver.driverNumber} ${driver.lastName} ${driver.name}",
                                         style = MaterialTheme.typography.titleMedium,
                                         modifier = Modifier.padding(start = 10.dp)
                                     )

@@ -41,10 +41,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.currentOrThrow
 import com.example.racing.ext.formatSeconds
 import com.example.racing.ext.formatTimestampToDateTimeString
 import com.example.racing.screen.base.DefaultBoxPage
 import com.example.racing.screen.home.RaceAlertDialog
+import com.example.racing.screen.raceTable.RaceTableScreen
 import kotlinx.coroutines.delay
 
 class RaceScreen(private val raceId: Long) : Screen {
@@ -52,7 +55,7 @@ class RaceScreen(private val raceId: Long) : Screen {
     override fun Content() {
         val viewModel = hiltViewModel<RaceViewModel>()
         val state by viewModel.state.collectAsState()
-
+        val navigator = LocalNavigator.currentOrThrow
         LaunchedEffect(viewModel) {
             viewModel.loadRace(raceId)
             viewModel.loadPlayers()
@@ -62,6 +65,12 @@ class RaceScreen(private val raceId: Long) : Screen {
             if (state.startTimer) {
                 delay(1000L)
                 viewModel.changeSeconds()
+            }
+        }
+
+        LaunchedEffect(state.saveRace) {
+            if(state.saveRace) {
+                navigator.push(RaceTableScreen(state.race.raceId))
             }
         }
 
@@ -135,7 +144,9 @@ class RaceScreen(private val raceId: Long) : Screen {
                             })
 
                             LazyColumn(
-                                Modifier.fillMaxWidth().padding(top = 10.dp),
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 10.dp),
                                 verticalArrangement = Arrangement.spacedBy(15.dp),
                                 contentPadding = PaddingValues(vertical = 16.dp)
                             ) {
@@ -154,7 +165,7 @@ class RaceScreen(private val raceId: Long) : Screen {
                                         )
 
                                         Text(
-                                            text = "${driver.driverId} ${driver.lastName} ${driver.name}",
+                                            text = "${driver.driverNumber} ${driver.lastName} ${driver.name}",
                                             style = MaterialTheme.typography.titleMedium,
                                             modifier = Modifier.padding(start = 10.dp)
                                         )
@@ -221,9 +232,11 @@ class RaceScreen(private val raceId: Long) : Screen {
 
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(100.dp),
-                modifier = Modifier.padding(top = 30.dp).heightIn(max = 250.dp)
+                modifier = Modifier
+                    .padding(top = 30.dp)
+                    .heightIn(max = 250.dp)
             ) {
                 items(state.selectDrivers) {
 
@@ -240,7 +253,7 @@ class RaceScreen(private val raceId: Long) : Screen {
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = it.driverId.toString(),
+                            text = it.driverNumber.toString(),
                             style = MaterialTheme.typography.titleLarge,
                             modifier = Modifier.padding(start = 5.dp, end = 5.dp),
                         )

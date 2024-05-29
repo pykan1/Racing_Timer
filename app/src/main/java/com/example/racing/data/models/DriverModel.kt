@@ -5,7 +5,9 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "driver")
 data class DriverModel(
-    @PrimaryKey(autoGenerate = true) val driverId: Long = 0,
+    @PrimaryKey(autoGenerate = true)
+    val driverId: Long = 0,
+    val driverNumber: Long,
     val name: String,
     val lastName: String,
 )

@@ -19,4 +19,5 @@ data class RaceModel(
     val createRace: Long,
     val duration: Long,
     val finish: Boolean,
+    val stackFinish: String, //"12, 34, 45, 45"
 )

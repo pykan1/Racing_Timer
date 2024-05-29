@@ -50,13 +50,24 @@ class PlayerViewModel @Inject constructor(private val raceRepositoryImpl: RaceRe
         }
     }
 
+    fun changeDriverNumber(it: String) {
+        viewModelScope.launch {
+            setState(
+                state.value.copy(
+                    driverNumber = it.filter { it.isDigit() }.toLongOrNull() ?: 0
+                )
+            )
+        }
+    }
+
     private fun clearAlert() {
         viewModelScope.launch {
             setState(
                 state.value.copy(
                     driverName = "",
                     driverLastName = "",
-                    alertDialog = false
+                    alertDialog = false,
+                    driverNumber = null
                 )
             )
         }
@@ -65,7 +76,7 @@ class PlayerViewModel @Inject constructor(private val raceRepositoryImpl: RaceRe
     fun deletePlayer(driverUI: DriverUI) {
         viewModelScope.launch {
             raceRepositoryImpl.deleteDriver(driverUI)
-            setState(state.value.copy(drivers = state.value.drivers.filter { it.driverId != driverUI.driverId }))
+            setState(state.value.copy(drivers = state.value.drivers.filter { it.driverNumber != driverUI.driverNumber }))
         }
     }
 
@@ -74,7 +85,8 @@ class PlayerViewModel @Inject constructor(private val raceRepositoryImpl: RaceRe
             raceRepositoryImpl.createDriver(
                 DriverUI(
                     name = state.value.driverName,
-                    lastName = state.value.driverLastName
+                    lastName = state.value.driverLastName,
+                    driverNumber = state.value.driverNumber?: 0
                 )
             )
             clearAlert()

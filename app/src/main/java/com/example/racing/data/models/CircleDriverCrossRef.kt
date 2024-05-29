@@ -5,6 +5,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 
 @Entity(
+    tableName = "circleDriverCrossRef",
     primaryKeys = ["circleId", "driverId"],
     foreignKeys = [
         ForeignKey(entity = CircleModel::class, parentColumns = ["circleId"], childColumns = ["circleId"], onDelete = ForeignKey.CASCADE),
@@ -14,5 +15,6 @@ import androidx.room.Index
 )
 data class CircleDriverCrossRef(
     val circleId: Long,
-    val driverId: Long
+    val driverId: Long,
+    val duration: Long,
 )
