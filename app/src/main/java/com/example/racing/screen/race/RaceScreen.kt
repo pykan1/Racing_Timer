@@ -2,6 +2,7 @@ package com.example.racing.screen.race
 
 import android.content.Context
 import android.content.Context.VIBRATOR_SERVICE
+import android.media.RingtoneManager
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -266,8 +267,15 @@ class RaceScreen(private val raceId: Long) : Screen {
                                 shape = RoundedCornerShape(10.dp)
                             )
                             .clickable(enabled = state.startTimer) {
-                                if(state.settings.vibration) {
+                                if (state.settings.vibration) {
                                     vib.vibrate(VibrationEffect.createOneShot(200, 10))
+                                }
+                                if (state.settings.bleeper) {
+                                    val notification =
+                                        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                                    val ringtone =
+                                        RingtoneManager.getRingtone(context, notification)
+                                    ringtone.play()
                                 }
                                 viewModel.addCircle(it)
                             },
