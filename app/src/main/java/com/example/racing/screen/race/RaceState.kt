@@ -3,6 +3,7 @@ package com.example.racing.screen.race
 import com.example.racing.domain.models.CircleUI
 import com.example.racing.domain.models.DriverCircleUI
 import com.example.racing.domain.models.RaceUI
+import com.example.racing.domain.models.SettingsUI
 import com.example.racing.screen.base.UiState
 
 data class RaceState(
@@ -16,12 +17,13 @@ data class RaceState(
     val driversAlert: Boolean,
     val startTimer: Boolean,
     val driversIdStack: List<Long>,
-    val saveRace: Boolean
+    val saveRace: Boolean,
+    val settings: SettingsUI,
 ) : UiState {
     companion object {
         val InitState = RaceState(
             RaceUI.Default,
-            "", emptyList(), emptyList(), false, 0, emptyList(), false, false, emptyList(), saveRace = false
+            "", emptyList(), emptyList(), false, 0, emptyList(), false, false, emptyList(), saveRace = false, settings = SettingsUI.Default
         )
     }
 }

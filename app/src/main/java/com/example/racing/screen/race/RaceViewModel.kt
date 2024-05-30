@@ -2,6 +2,7 @@ package com.example.racing.screen.race
 
 import androidx.lifecycle.viewModelScope
 import com.example.racing.data.local.repositoryImpl.RaceRepositoryImpl
+import com.example.racing.data.local.repositoryImpl.StoreManager
 import com.example.racing.data.mapper.toDriverCircleUI
 import com.example.racing.domain.models.CircleUI
 import com.example.racing.domain.models.DriverCircleUI
@@ -16,11 +17,23 @@ import javax.inject.Inject
 
 
 @HiltViewModel
-class RaceViewModel @Inject constructor(private val raceRepositoryImpl: RaceRepositoryImpl) :
+class RaceViewModel @Inject constructor(
+    private val raceRepositoryImpl: RaceRepositoryImpl,
+    private val storeManager: StoreManager
+) :
     BaseViewModel<RaceState>(RaceState.InitState) {
     private var searchJob: Job? = null
 
     init {
+        viewModelScope.launch {
+            storeManager.getSettings().collect {
+                setState(
+                    state.value.copy(
+                        settings = it
+                    )
+                )
+            }
+        }
         loadPlayers()
     }
 

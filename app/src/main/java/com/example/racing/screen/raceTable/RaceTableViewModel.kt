@@ -15,16 +15,6 @@ class RaceTableViewModel @Inject constructor(private val raceRepositoryImpl: Rac
     fun loadRace(id: Long) {
         viewModelScope.launch {
             val raceDetail = raceRepositoryImpl.getRaceDetail(id)
-            println(raceDetail.raceUI)
-            println("----------")
-            println(raceDetail.drivers)
-            println("----------")
-            raceDetail.circles.forEach {
-                println(it)
-            }
-            println("----------")
-
-
             setState(state.value.copy(
                 raceDetailUI = raceDetail
             ))

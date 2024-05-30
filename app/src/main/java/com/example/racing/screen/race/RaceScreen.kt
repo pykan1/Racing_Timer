@@ -1,5 +1,11 @@
 package com.example.racing.screen.race
 
+import android.content.Context
+import android.content.Context.VIBRATOR_SERVICE
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +41,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -69,7 +76,7 @@ class RaceScreen(private val raceId: Long) : Screen {
         }
 
         LaunchedEffect(state.saveRace) {
-            if(state.saveRace) {
+            if (state.saveRace) {
                 navigator.push(RaceTableScreen(state.race.raceId))
             }
         }
@@ -121,8 +128,6 @@ class RaceScreen(private val raceId: Long) : Screen {
                         title = state.race.raceTitle.let { if (it.isBlank()) "Заезд от ${state.race.createRace.formatTimestampToDateTimeString()}" else it },
                         onDismiss = { viewModel.driversAlert() }) {
                         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-
-
                             OutlinedTextField(value = state.searchDriver, onValueChange = {
                                 viewModel.changeSearchPlayers(it)
                             }, modifier = Modifier
@@ -204,11 +209,24 @@ class RaceScreen(private val raceId: Long) : Screen {
 
     @Composable
     private fun RaceTimerContent(viewModel: RaceViewModel, state: RaceState) {
+        val context = LocalContext.current
+        val vib = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager =
+                context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vibratorManager.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(VIBRATOR_SERVICE) as Vibrator
+        }
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = state.seconds.formatSeconds())
+            Text(
+                text = state.seconds.formatSeconds(),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(vertical = 5.dp)
+            )
             Button(
                 onClick = { viewModel.changeIsTimer() },
                 modifier = Modifier
@@ -229,7 +247,6 @@ class RaceScreen(private val raceId: Long) : Screen {
                     .fillMaxWidth()
                     .padding(top = 16.dp)
             )
-
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -248,7 +265,12 @@ class RaceScreen(private val raceId: Long) : Screen {
                                 color = MaterialTheme.colorScheme.inverseSurface,
                                 shape = RoundedCornerShape(10.dp)
                             )
-                            .clickable(enabled = state.startTimer) { viewModel.addCircle(it) },
+                            .clickable(enabled = state.startTimer) {
+                                if(state.settings.vibration) {
+                                    vib.vibrate(VibrationEffect.createOneShot(200, 10))
+                                }
+                                viewModel.addCircle(it)
+                            },
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
@@ -256,13 +278,6 @@ class RaceScreen(private val raceId: Long) : Screen {
                             text = it.driverNumber.toString(),
                             style = MaterialTheme.typography.titleLarge,
                             modifier = Modifier.padding(start = 5.dp, end = 5.dp),
-                        )
-                        Text(
-                            text = "${it.name} ${it.lastName}",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(top = 10.dp, start = 5.dp, end = 5.dp),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
                         )
 
                     }

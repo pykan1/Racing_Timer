@@ -62,7 +62,6 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-
             Text(
                 text = "Места",
                 style = MaterialTheme.typography.titleMedium,
@@ -83,7 +82,7 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                 TableCell(
                     modifier = Modifier.weight(0.30f),
                     title = "Участник",
-                    data = state.raceDetailUI.drivers.map { it.driverId.toString() }
+                    data = state.raceDetailUI.drivers.map { "${it.driverNumber}\n${it.name} ${it.lastName}" }
                 )
                 TableCell(
                     modifier = Modifier.weight(0.35f),

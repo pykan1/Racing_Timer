@@ -7,6 +7,7 @@ import com.example.racing.data.local.repository.CircleRepository
 import com.example.racing.data.local.repository.DriverRepository
 import com.example.racing.data.local.repository.RaceDriverCrossRefRepository
 import com.example.racing.data.local.repository.RaceRepository
+import com.example.racing.data.local.repositoryImpl.StoreManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -28,6 +29,11 @@ class DatabaseModule {
             AppDatabase::class.java,
             "app_database"
         ).build()
+    }
+
+    @Provides
+    fun provideDataStore(@ApplicationContext context: Context): StoreManager {
+        return StoreManager(context)
     }
 
     @Provides

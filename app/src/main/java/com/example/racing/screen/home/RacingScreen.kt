@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -142,7 +143,10 @@ class RacingScreen : Screen {
                 RaceAlertDialog(
                     title = "Новый заезд",
                     onDismiss = { viewModel.changeAlertDialog() }) {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                    ) {
                         OutlinedTextField(
                             modifier = Modifier.fillMaxWidth(),
                             value = state.raceTitle,
@@ -156,7 +160,8 @@ class RacingScreen : Screen {
                                         color = MaterialTheme.typography.titleSmall.color.copy(alpha = 0.5f)
                                     )
                                 )
-                            })
+                            }
+                        )
 
                         OutlinedTextField(value = state.findPlayer, onValueChange = {
                             viewModel.changeSearchPlayers(it)
@@ -176,7 +181,7 @@ class RacingScreen : Screen {
                         LazyColumn(
                             Modifier
                                 .fillMaxWidth()
-                                .padding(top = 10.dp),
+                                .padding(top = 10.dp).heightIn(max = 300.dp),
                             verticalArrangement = Arrangement.spacedBy(15.dp),
                             contentPadding = PaddingValues(vertical = 16.dp)
                         ) {
@@ -248,7 +253,9 @@ internal fun RaceAlertDialog(
                 .background(
                     MaterialTheme.colorScheme.surface,
                     shape = RoundedCornerShape(8.dp)
-                ),
+                )
+                .heightIn(max = 500.dp)
+             ,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(
