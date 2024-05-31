@@ -58,7 +58,8 @@ fun CircleModel.toUI(
         circleId = circleId,
         raceId = raceId,
         isPenalty = isPenalty,
-        drivers = driversCircle.map { it.toUI(drivers) }
+        drivers = driversCircle.map { it.toUI(drivers) },
+        finishPenaltyDrivers = finishPenaltyDrivers.split(" ").map { it.toLongOrNull() ?: -1 },
     )
 }
 
@@ -66,20 +67,22 @@ fun CircleDriverCrossRef.toUI(drivers: List<DriverModel>): DriverCircleUI {
     val driver = drivers.find { it.driverId == driverId }
     return DriverCircleUI(
         driverId = driverId,
-        driverNumber = driver?.driverNumber?: 0,
+        driverNumber = driver?.driverNumber ?: 0,
         name = driver?.name.orEmpty(),
         lastName = driver?.lastName.orEmpty(),
-        duration = duration
+        duration = duration,
+        useDuration = useDuration
     )
 }
 
 
-fun DriverUI.toDriverCircleUI(duration: Long = 0): DriverCircleUI {
+fun DriverUI.toDriverCircleUI(duration: Long = 0, useDuration: Boolean= true): DriverCircleUI {
     return DriverCircleUI(
         driverId = driverId,
         driverNumber = driverNumber,
         name = name,
         lastName = lastName,
-        duration = duration
+        duration = duration,
+        useDuration = useDuration
     )
 }

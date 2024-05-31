@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -42,6 +43,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.core.screen.ScreenKey
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.example.racing.ext.formatSeconds
@@ -59,11 +62,15 @@ import com.example.racing.screen.raceTable.RaceTableScreen
 import kotlinx.coroutines.delay
 
 class RaceScreen(private val raceId: Long) : Screen {
+
+    override val key: ScreenKey = raceId.toString()
+
     @Composable
     override fun Content() {
         val viewModel = hiltViewModel<RaceViewModel>()
         val state by viewModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
+
         LaunchedEffect(viewModel) {
             viewModel.loadRace(raceId)
             viewModel.loadPlayers()
@@ -142,9 +149,7 @@ class RaceScreen(private val raceId: Long) : Screen {
                                 Text(
                                     text = "Поиск участников",
                                     style = MaterialTheme.typography.titleSmall.copy(
-                                        color = MaterialTheme.typography.titleSmall.color.copy(
-                                            alpha = 0.5f
-                                        )
+                                        color = MaterialTheme.typography.titleSmall.color
                                     )
                                 )
                             })
@@ -256,37 +261,75 @@ class RaceScreen(private val raceId: Long) : Screen {
                     .padding(top = 30.dp)
                     .heightIn(max = 250.dp)
             ) {
-                items(state.selectDrivers) {
-
+                items(state.selectDrivers) { driver ->
                     Column(
                         modifier = Modifier
-                            .size(90.dp)
+                            .size(150.dp)
                             .border(
                                 width = 1.dp,
                                 color = MaterialTheme.colorScheme.inverseSurface,
                                 shape = RoundedCornerShape(10.dp)
-                            )
-                            .clickable(enabled = state.startTimer) {
-                                if (state.settings.vibration) {
-                                    vib.vibrate(VibrationEffect.createOneShot(200, 10))
-                                }
-                                if (state.settings.bleeper) {
-                                    val notification =
-                                        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                                    val ringtone =
-                                        RingtoneManager.getRingtone(context, notification)
-                                    ringtone.play()
-                                }
-                                viewModel.addCircle(it)
-                            },
+                            ).clip(RoundedCornerShape(10.dp)),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        Text(
-                            text = it.driverNumber.toString(),
-                            style = MaterialTheme.typography.titleLarge,
-                            modifier = Modifier.padding(start = 5.dp, end = 5.dp),
-                        )
+                        val isPenalty = state.circles.any { it.isPenalty && driver.driverId in it.drivers.map { it.driverId } && driver.driverId !in it.finishPenaltyDrivers }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(0.7f)
+                                .fillMaxWidth()
+                                .clickable(enabled = state.startTimer && !isPenalty) {
+                                    if (state.settings.vibration) {
+                                        vib.vibrate(VibrationEffect.createOneShot(200, 150))
+                                    }
+                                    if (state.settings.bleeper) {
+                                        val notification =
+                                            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                                        val ringtone =
+                                            RingtoneManager.getRingtone(context, notification)
+                                        ringtone.play()
+                                    }
+                                    viewModel.addCircle(driver, false)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = driver.driverNumber.toString(),
+                                style = MaterialTheme.typography.titleLarge,
+                                modifier = Modifier.padding(start = 5.dp, end = 5.dp),
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(0.3f)
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.error)
+                                .clickable(enabled = state.startTimer) {
+                                    if (state.settings.vibration) {
+                                        vib.vibrate(VibrationEffect.createOneShot(200, 150))
+                                    }
+                                    if (state.settings.bleeper) {
+                                        val notification =
+                                            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                                        val ringtone =
+                                            RingtoneManager.getRingtone(context, notification)
+                                        ringtone.play()
+                                    }
+                                    if (isPenalty) {
+                                        viewModel.finishPenaltyCircle(driver.driverId)
+                                    } else {
+                                        viewModel.addCircle(driver, true)
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if(isPenalty) "Завершить" else "Штраф",
+                                style = MaterialTheme.typography.titleLarge,
+                                modifier = Modifier.padding(start = 5.dp, end = 5.dp),
+                            )
+                        }
 
                     }
 

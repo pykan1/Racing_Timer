@@ -10,4 +10,5 @@ data class CircleModel (
     val circleId: Long = 0,
     val raceId: Long,
     val isPenalty: Boolean,
+    val finishPenaltyDrivers: String,
 )

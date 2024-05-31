@@ -124,9 +124,7 @@ class PlayerScreen : Screen {
                             placeholder = {
                                 Text(
                                     text = "Номер участника",
-                                    style = MaterialTheme.typography.titleSmall.copy(
-                                        color = MaterialTheme.typography.titleSmall.color.copy(alpha = 0.5f)
-                                    )
+                                    style = MaterialTheme.typography.titleSmall
                                 )
                             })
 
@@ -141,9 +139,7 @@ class PlayerScreen : Screen {
                             placeholder = {
                                 Text(
                                     text = "Имя участника",
-                                    style = MaterialTheme.typography.titleSmall.copy(
-                                        color = MaterialTheme.typography.titleSmall.color.copy(alpha = 0.5f)
-                                    )
+                                    style = MaterialTheme.typography.titleSmall
                                 )
                             })
 
@@ -155,9 +151,7 @@ class PlayerScreen : Screen {
                             .padding(top = 16.dp), placeholder = {
                             Text(
                                 text = "Фамилия участника",
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    color = MaterialTheme.typography.titleSmall.color.copy(alpha = 0.5f)
-                                )
+                                style = MaterialTheme.typography.titleSmall
                             )
                         })
 

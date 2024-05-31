@@ -110,11 +110,6 @@ class RaceRepositoryImpl @Inject constructor(
         selectUsers: List<DriverCircleUI>,
         raceStack: List<Long>
     ) {
-        println("+++++++++++++++")
-        circles.forEach {
-            println(it)
-        }
-        println("+++++++++++++++")
         raceRepository.updateRace(
             RaceModel(
                 raceId = race.raceId,
@@ -128,7 +123,8 @@ class RaceRepositoryImpl @Inject constructor(
         circles.forEach {
             val circleModel = CircleModel(
                 raceId = race.raceId,
-                isPenalty = it.isPenalty
+                isPenalty = it.isPenalty,
+                finishPenaltyDrivers = it.finishPenaltyDrivers.joinToString(" "),
             )
             val circleId = circleRepository.insertLap(
                 circleModel
@@ -139,6 +135,7 @@ class RaceRepositoryImpl @Inject constructor(
                         circleId = circleId,
                         driverId = it.driverId,
                         duration = it.duration,
+                        useDuration = it.useDuration
                     )
                 )
             }

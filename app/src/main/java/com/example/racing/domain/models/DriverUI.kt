@@ -12,5 +12,6 @@ data class DriverCircleUI(
     val driverNumber: Long,
     val name: String,
     val lastName: String,
-    val duration: Long
+    val duration: Long,
+    val useDuration: Boolean
 )

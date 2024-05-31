@@ -72,7 +72,7 @@ class RacingScreen : Screen {
             ) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = 16.dp, bottom = 50.dp),
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 70.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     items(state.races) {
@@ -156,9 +156,7 @@ class RacingScreen : Screen {
                             placeholder = {
                                 Text(
                                     text = "Название заезда",
-                                    style = MaterialTheme.typography.titleSmall.copy(
-                                        color = MaterialTheme.typography.titleSmall.color.copy(alpha = 0.5f)
-                                    )
+                                    style = MaterialTheme.typography.titleSmall
                                 )
                             }
                         )
@@ -172,9 +170,7 @@ class RacingScreen : Screen {
                         }, placeholder = {
                             Text(
                                 text = "Поиск участников",
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    color = MaterialTheme.typography.titleSmall.color.copy(alpha = 0.5f)
-                                )
+                                style = MaterialTheme.typography.titleSmall
                             )
                         })
 

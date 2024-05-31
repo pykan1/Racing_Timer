@@ -6,4 +6,5 @@ data class CircleUI (
     val raceId: Long,
     val isPenalty: Boolean,
     val drivers: List<DriverCircleUI>,
+    val finishPenaltyDrivers: List<Long>,
 )

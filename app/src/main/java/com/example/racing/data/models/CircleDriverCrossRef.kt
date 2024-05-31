@@ -17,4 +17,5 @@ data class CircleDriverCrossRef(
     val circleId: Long,
     val driverId: Long,
     val duration: Long,
+    val useDuration: Boolean,
 )

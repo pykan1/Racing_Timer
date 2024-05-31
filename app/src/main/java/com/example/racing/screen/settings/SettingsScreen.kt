@@ -46,11 +46,7 @@ class SettingsScreen : Screen {
                 }, placeholder = {
                     Text(
                         text = "Email для отправки результатов",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            color = MaterialTheme.typography.titleSmall.color.copy(
-                                alpha = 0.5f
-                            )
-                        )
+                        style = MaterialTheme.typography.titleSmall
                     )
                 })
 
@@ -79,7 +75,7 @@ class SettingsScreen : Screen {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Bleeper",
+                        text = "Звуковой сигнал",
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.titleMedium
                     )

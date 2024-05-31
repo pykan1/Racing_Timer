@@ -67,7 +67,7 @@ class RaceViewModel @Inject constructor(
         }
     }
 
-    fun addCircle(driverUI: DriverCircleUI) {
+    fun addCircle(driverUI: DriverCircleUI, isPenalty: Boolean) {
         viewModelScope.launch {
             var isChange = false
             val circles = if (state.value.circles.lastOrNull()?.drivers?.map { it.driverId }
@@ -78,7 +78,8 @@ class RaceViewModel @Inject constructor(
                     drivers = listOf(driverUI.copy(duration = state.value.seconds - state.value.circles.sumOf {
                         it.drivers.find { it.driverId == driverUI.driverId }?.duration ?: 0
                     })),
-                    isPenalty = false
+                    isPenalty = isPenalty,
+                    finishPenaltyDrivers = emptyList(),
                 )
             } else state.value.circles.mapIndexed { index, circleUI ->
                 if (!circleUI.drivers.map { it.driverId }
@@ -97,7 +98,27 @@ class RaceViewModel @Inject constructor(
             setState(
                 state.value.copy(
                     circles = circles,
-                    driversIdStack = state.value.driversIdStack + driverUI.driverNumber
+                    driversIdStack = state.value.driversIdStack.let { if (!isPenalty) it + driverUI.driverNumber else it }
+                )
+            )
+        }
+    }
+
+    fun finishPenaltyCircle(driverId: Long) {
+        viewModelScope.launch {
+            setState(
+                state.value.copy(
+                    circles = state.value.circles.map {
+                        if (it.isPenalty) {
+                            if (driverId in it.drivers.map { it.driverId } && driverId !in it.finishPenaltyDrivers) {
+                                it.copy(finishPenaltyDrivers = it.finishPenaltyDrivers + driverId)
+                            } else {
+                                it
+                            }
+                        } else {
+                            it
+                        }
+                    }
                 )
             )
         }
@@ -137,9 +158,31 @@ class RaceViewModel @Inject constructor(
 
     private fun saveRace() {
         viewModelScope.launch {
+            var circles = mutableListOf<CircleUI>()
+            circles.addAll(state.value.circles)
+            state.value.circles.forEach { circle ->
+                state.value.selectDrivers.forEach { driver ->
+                    if (circle.isPenalty && driver.driverId in circle.drivers.map { it.driverId } && driver.driverId !in circle.finishPenaltyDrivers) {
+                        circles.findLast { !it.isPenalty && driver.driverId in it.drivers.map { it.driverId } }
+                            ?.let { circle ->
+                                circles = circles.map {
+                                    if (it.circleId == circle.circleId) {
+                                        it.copy(
+                                            drivers = it.drivers.map {
+                                                if (it.driverId == driver.driverId) it.copy(
+                                                    useDuration = false //todo
+                                                ) else it
+                                            }
+                                        )
+                                    } else it
+                                }.toMutableList()
+                            }
+                    }
+                }
+            }
             raceRepositoryImpl.saveRace(
                 race = state.value.race.copy(duration = state.value.seconds),
-                circles = state.value.circles,
+                circles = circles,
                 selectUsers = state.value.selectDrivers,
                 raceStack = state.value.driversIdStack
             )

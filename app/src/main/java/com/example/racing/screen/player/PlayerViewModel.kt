@@ -76,7 +76,7 @@ class PlayerViewModel @Inject constructor(private val raceRepositoryImpl: RaceRe
     fun deletePlayer(driverUI: DriverUI) {
         viewModelScope.launch {
             raceRepositoryImpl.deleteDriver(driverUI)
-            setState(state.value.copy(drivers = state.value.drivers.filter { it.driverNumber != driverUI.driverNumber }))
+            setState(state.value.copy(drivers = state.value.drivers.filter { it.driverId != driverUI.driverId }))
         }
     }
 
