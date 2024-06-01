@@ -4,7 +4,6 @@ plugins {
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
 }
-
 android {
     namespace = "com.example.racing"
     compileSdk = 34
@@ -31,28 +30,34 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
+
     kotlinOptions {
         jvmTarget = "1.8"
     }
+
     buildFeatures {
         compose = true
     }
+
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.6"
     }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "org/bouncycastle/pqc/crypto/picnic/lowmcL5.bin.properties"
+            excludes += "org/bouncycastle/pqc/crypto/picnic/lowmcL3.bin.properties"
         }
     }
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -68,11 +73,9 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    implementation ("androidx.compose.material:material-icons-extended:1.6.7")
+    implementation("androidx.compose.material:material-icons-extended:1.6.7")
 
     implementation("androidx.datastore:datastore-preferences:1.1.1")
-
-
 
     val voyagerVersion = "1.0.0"
 
@@ -102,5 +105,9 @@ dependencies {
     //Hilt
     implementation("com.google.dagger:hilt-android:2.50")
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
-    ksp ("com.google.dagger:hilt-compiler:2.50")
+    ksp("com.google.dagger:hilt-compiler:2.50")
+
+//    implementation("com.grapecity.documents:gcexcel:7.1.2")
+    implementation("com.github.SUPERCILEX.poi-android:poi:3.17")
+    implementation("org.apache.commons:commons-csv:1.5")
 }

@@ -1,6 +1,15 @@
 package com.example.racing.screen.raceTable
 
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -44,6 +55,23 @@ class RaceTableScreen(private val raceId: Long) : Screen {
         val viewModel = hiltViewModel<RaceTableViewModel>()
         val state by viewModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
+        val context = LocalContext.current
+        val filesPermission =
+            rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestMultiplePermissions()) { isGranted ->
+                if (isGranted.all { it.value }) {
+                    viewModel.createExcelFile(context)
+                }
+
+            }
+
+        val filePermission =
+            rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestPermission()) { isGranted ->
+                if (isGranted) {
+                    viewModel.createExcelFile(context)
+                }
+
+            }
+
         LaunchedEffect(viewModel) {
             viewModel.loadRace(raceId)
         }
@@ -231,6 +259,34 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            Button(
+                onClick = {
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        val readPermission = Environment.isExternalStorageManager()
+                        if (readPermission) {
+                            viewModel.createExcelFile(context)
+//                            filePermission.launch(Manifest.permission.MANAGE_EXTERNAL_STORAGE)
+                        } else {
+                            context.openActionSettingsPage(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                        }
+                    } else {
+                        filesPermission.launch(
+                            arrayOf<String>(
+                                Manifest.permission.READ_EXTERNAL_STORAGE,
+                                Manifest.permission.WRITE_EXTERNAL_STORAGE
+                            )
+                        )
+                    }
+
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                    .height(50.dp)
+            ) {
+                Text(text = "Экспорт", style = MaterialTheme.typography.titleMedium)
+            }
         }
 
     }
@@ -295,4 +351,28 @@ class RaceTableScreen(private val raceId: Long) : Screen {
         }
 
     }
+}
+
+internal fun Context.openPage(
+    action: String,
+    newData: Uri? = null,
+    onError: (Exception) -> Unit,
+) {
+    try {
+        val intent = Intent(action).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            newData?.let { data = it }
+        }
+        startActivity(intent)
+    } catch (e: Exception) {
+        onError(e)
+    }
+}
+
+internal fun Context.openActionSettingsPage(action: String) {
+    openPage(
+        action = action,
+        newData = Uri.parse("package:$packageName"),
+        onError = { throw Exception() }
+    )
 }
