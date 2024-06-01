@@ -4,12 +4,14 @@ import com.example.racing.domain.models.RaceDetailUI
 import com.example.racing.screen.base.UiState
 
 data class RaceTableState(
-    val raceDetailUI: RaceDetailUI
+    val raceDetailUI: RaceDetailUI,
+    val fileExist: Boolean,
 
 ): UiState {
     companion object {
         val InitState = RaceTableState(
-            raceDetailUI = RaceDetailUI.Default
+            raceDetailUI = RaceDetailUI.Default,
+            fileExist = false
         )
     }
 }

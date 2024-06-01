@@ -56,24 +56,27 @@ class RaceTableScreen(private val raceId: Long) : Screen {
         val state by viewModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val filesPermission =
+        val filesPermissionOpenFile =
             rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestMultiplePermissions()) { isGranted ->
                 if (isGranted.all { it.value }) {
-                    viewModel.createExcelFile(context)
+                    viewModel.createExcelFile(context) { context, file ->
+                        viewModel.openFile(context, file)
+                    }
                 }
-
+            }
+        val filesPermissionShareFile =
+            rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestMultiplePermissions()) { isGranted ->
+                if (isGranted.all { it.value }) {
+                    viewModel.createExcelFile(context) { context, file ->
+                        viewModel.shareFile(context, file)
+                    }
+                }
             }
 
-        val filePermission =
-            rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestPermission()) { isGranted ->
-                if (isGranted) {
-                    viewModel.createExcelFile(context)
-                }
 
-            }
 
         LaunchedEffect(viewModel) {
-            viewModel.loadRace(raceId)
+            viewModel.loadRace(raceId, context)
         }
 
         BackHandler {
@@ -116,7 +119,12 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                 TableCell(
                     modifier = Modifier.weight(0.15f),
                     title = Pair("Место", false),
-                    data = (1..state.raceDetailUI.drivers.size).map { Pair(it.toString(), false) }
+                    data = (1..state.raceDetailUI.drivers.size).map {
+                        Pair(
+                            it.toString(),
+                            false
+                        )
+                    }
                         .toList(),
                 )
                 TableCell(
@@ -175,6 +183,7 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                     },
                 )
                 state.raceDetailUI.circles.forEachIndexed { index, item ->
+                    println(item)
                     TableCell(
                         modifier = Modifier.weight(1f),
                         title = Pair(
@@ -183,9 +192,7 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                         ),
                         data = state.raceDetailUI.drivers.map { driver ->
                             item.drivers.find {
-                                if (item.isPenalty) {
-                                    it.driverId == driver.driverId && driver.driverId !in item.finishPenaltyDrivers
-                                } else it.driverId == driver.driverId
+                              it.driverId == driver.driverId
                             }.let { driverCircle ->
                                 Pair(
                                     driverCircle?.duration?.formatSeconds()
@@ -233,7 +240,8 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                     title = Pair("Участники", false),
                     data = state.raceDetailUI.circles.map { item ->
                         Pair(
-                            item.drivers.map { it.driverNumber.toString() }.joinToString(", "),
+                            item.drivers.map { it.driverNumber.toString() }
+                                .joinToString(", "),
                             false
                         )
                     },
@@ -265,13 +273,14 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         val readPermission = Environment.isExternalStorageManager()
                         if (readPermission) {
-                            viewModel.createExcelFile(context)
-//                            filePermission.launch(Manifest.permission.MANAGE_EXTERNAL_STORAGE)
+                            viewModel.createExcelFile(context) { context, file ->
+                                viewModel.shareFile(context, file)
+                            }
                         } else {
                             context.openActionSettingsPage(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
                         }
                     } else {
-                        filesPermission.launch(
+                        filesPermissionShareFile.launch(
                             arrayOf<String>(
                                 Manifest.permission.READ_EXTERNAL_STORAGE,
                                 Manifest.permission.WRITE_EXTERNAL_STORAGE
@@ -286,6 +295,39 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                     .height(50.dp)
             ) {
                 Text(text = "Экспорт", style = MaterialTheme.typography.titleMedium)
+            }
+
+            Button(
+                onClick = {
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        val readPermission = Environment.isExternalStorageManager()
+                        if (readPermission) {
+                            viewModel.createExcelFile(context) { context, file ->
+                                viewModel.openFile(context, file)
+                            }
+                        } else {
+                            context.openActionSettingsPage(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                        }
+                    } else {
+                        filesPermissionOpenFile.launch(
+                            arrayOf<String>(
+                                Manifest.permission.READ_EXTERNAL_STORAGE,
+                                Manifest.permission.WRITE_EXTERNAL_STORAGE
+                            )
+                        )
+                    }
+
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                    .height(50.dp)
+            ) {
+                Text(
+                    text = if (state.fileExist) "Открыть" else "Скачать файл",
+                    style = MaterialTheme.typography.titleMedium
+                )
             }
         }
 

@@ -1,10 +1,15 @@
 package com.example.racing.screen.raceTable
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.util.Log
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import androidx.lifecycle.viewModelScope
 import com.example.racing.data.local.repositoryImpl.RaceRepositoryImpl
+import com.example.racing.data.local.repositoryImpl.StoreManager
 import com.example.racing.domain.models.CircleUI
 import com.example.racing.domain.models.DriverResult
 import com.example.racing.domain.models.DriverUI
@@ -15,24 +20,45 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.IOException
+import java.io.OutputStreamWriter
+import java.nio.charset.StandardCharsets
 import javax.inject.Inject
 
 
 @HiltViewModel
 class RaceTableViewModel @Inject constructor(
     private val raceRepositoryImpl: RaceRepositoryImpl,
+    private val storeManager: StoreManager,
 ) :
     BaseViewModel<RaceTableState>(RaceTableState.InitState) {
 
-    fun loadRace(id: Long) {
+    fun loadRace(id: Long, context: Context) {
         viewModelScope.launch {
             val raceDetail = raceRepositoryImpl.getRaceDetail(id)
             val rankDrivers = rankDrivers(raceDetail.circles, raceDetail.drivers).filterNotNull()
+            val fileName =
+                "/${raceDetail.raceUI.raceTitle}_${raceDetail.raceUI.createRace.formatTimestampToDateTimeString()}.csv"
+            // Получение директории приложения
+            val path = context.getExternalFilesDir(null)
+            // Проверка существования файла
+            val isExist = path?.let {
+                val directory = File(it.absolutePath)
+
+                if (!directory.exists()) {
+                    val directoryCreated = directory.mkdirs()
+                    if (!directoryCreated) {
+                        Log.e("CreateExcelFile", "Failed to create directory")
+                    }
+                }
+
+                File(directory, fileName).exists()
+            } ?: false
             setState(
                 state.value.copy(
                     raceDetailUI = raceDetail.copy(
                         drivers = rankDrivers,
-                        circles = raceDetail.circles.sortedBy { it.isPenalty })
+                        circles = raceDetail.circles.sortedBy { it.isPenalty }),
+                    fileExist = isExist
                 )
             )
         }
@@ -70,7 +96,7 @@ class RaceTableViewModel @Inject constructor(
         }
     }
 
-    fun createExcelFile(context: Context) {
+    fun createExcelFile(context: Context, doAfter: (Context, File) -> Unit = { _, _ -> }) {
         val fileName =
             "${state.value.raceDetailUI.raceUI.raceTitle}_${state.value.raceDetailUI.raceUI.createRace.formatTimestampToDateTimeString()}.csv"
         val path = context.getExternalFilesDir(null)
@@ -89,8 +115,10 @@ class RaceTableViewModel @Inject constructor(
             try {
                 val fileCreated = file.createNewFile()
                 if (fileCreated) {
-                    createExcel(file, context)
+                    createExcel(file, context, doAfter)
                 } else {
+                    doAfter(context, file)
+                    setState(state.value.copy(fileExist = true))
                     Log.e("CreateExcelFile", "File already exists")
                 }
             } catch (e: IOException) {
@@ -99,69 +127,142 @@ class RaceTableViewModel @Inject constructor(
         }
     }
 
-    private fun createExcel(file: File, context: Context) {
-        val csvBuilder = StringBuilder()
-        val raceDetailUI = state.value.raceDetailUI
-        // Header rows
-        csvBuilder.append("Результаты заезда от ${raceDetailUI.raceUI.createRace.formatTimestampToDateTimeString()}\n")
-        csvBuilder.append("${raceDetailUI.raceUI.raceTitle}\n")
+    fun shareFile(context: Context, file: File) {
+        viewModelScope.launch {
+            val uri: Uri =
+                FileProvider.getUriForFile(
+                    context,
+                    context.applicationContext.packageName + ".provider",
+                    file
+                )
+            storeManager.getSettings().collect {
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/csv"
+                    putExtra(Intent.EXTRA_EMAIL, arrayOf(it.email))
+                    putExtra(
+                        Intent.EXTRA_SUBJECT,
+                        """Результаты заезда "${state.value.raceDetailUI.raceUI.raceTitle}" """
+                    )
+                    putExtra(Intent.EXTRA_TEXT, "Результаты заезда")
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
 
+                if (intent.resolveActivity(context.packageManager) != null) {
+                    context.startActivity(Intent.createChooser(intent, "Отправить Email"))
+                } else {
+                    Toast.makeText(context, "Нет приложения для отправки Email", Toast.LENGTH_LONG)
+                        .show()
+                }
+            }
+        }
+    }
+
+    private fun createExcel(
+        file: File,
+        context: Context,
+        doAfter: (Context, File) -> Unit = { _, _ -> }
+    ) {
+        val csvBuilder = StringBuilder()
+
+        // Header rows
+        csvBuilder.append("Результаты заезда от ${state.value.raceDetailUI.raceUI.createRace.formatTimestampToDateTimeString()}\n")
+        csvBuilder.append("Название заезда,${state.value.raceDetailUI.raceUI.raceTitle}\n")
+        csvBuilder.append("\n")
+        csvBuilder.append("Места\n")
         // First table headers
-        csvBuilder.append("Место,Участник,Время,Всего кругов\n")
+        csvBuilder.append("Место,Участник,Имя,Фамилия,Время,Всего кругов\n")
 
         // First table data
-        raceDetailUI.drivers.forEachIndexed { index, driver ->
-            val time = raceDetailUI.circles.sumOf { circle ->
+        state.value.raceDetailUI.drivers.forEachIndexed { index, driver ->
+            val time = state.value.raceDetailUI.circles.sumOf { circle ->
                 circle.drivers.sumOf {
                     if (it.driverId == driver.driverId && !circle.isPenalty && it.useDuration) it.duration else 0
                 }
             }.formatSeconds()
 
-            val totalCircles = raceDetailUI.circles.count { circle ->
+            val totalCircles = state.value.raceDetailUI.circles.count { circle ->
                 driver.driverId in circle.drivers.map { it.driverId }
             }
 
-            csvBuilder.append("${index + 1},${driver.driverNumber} ${driver.name} ${driver.lastName},${time},${totalCircles}\n")
+            csvBuilder.append("${index + 1},${driver.driverNumber},${driver.name},${driver.lastName},${time},${totalCircles}\n")
         }
-
+        csvBuilder.append("\n")
+        csvBuilder.append("По времени круга")
         // Second table headers
         csvBuilder.append("\nУчастник,")
-        raceDetailUI.circles.forEachIndexed { index, circle ->
+        state.value.raceDetailUI.circles.forEachIndexed { index, circle ->
             csvBuilder.append(if (circle.isPenalty) "Штрафной круг," else "Круг ${index + 1},")
         }
         csvBuilder.append("\n")
 
         // Second table data
-        raceDetailUI.drivers.forEach { driver ->
+        state.value.raceDetailUI.drivers.forEach { driver ->
             csvBuilder.append("${driver.driverNumber},")
-            raceDetailUI.circles.forEach { circle ->
+            state.value.raceDetailUI.circles.forEach { circle ->
                 val driverCircle = circle.drivers.find { it.driverId == driver.driverId }
                 val time = driverCircle?.duration?.formatSeconds() ?: ""
-                val circleData = if (circle.isPenalty && driver.driverId !in circle.finishPenaltyDrivers) {
-                    "Не прошел штрафной круг"
-                } else {
-                    time
-                }
+                val circleData =
+                    if (circle.isPenalty && driver.driverId !in circle.finishPenaltyDrivers) {
+                        "Не прошел штрафной круг"
+                    } else {
+                        time
+                    }
                 csvBuilder.append("${circleData},")
             }
             csvBuilder.append("\n")
         }
-
+        csvBuilder.append("\nПо кругам")
         // Third table headers
         csvBuilder.append("\nКруг,Участники\n")
 
         // Third table data
-        raceDetailUI.circles.forEachIndexed { index, circle ->
+        state.value.raceDetailUI.circles.forEachIndexed { index, circle ->
             csvBuilder.append("${if (!circle.isPenalty) (index + 1).toString() else "Штрафной"},")
             csvBuilder.append(circle.drivers.joinToString(", ") { it.driverNumber.toString() })
             csvBuilder.append("\n")
         }
 
-        // Write to file
-        file.writeText(csvBuilder.toString())
+        csvBuilder.append("\nВремя заезда,${state.value.raceDetailUI.raceUI.duration.formatSeconds()}\n")
+        csvBuilder.append("Порядок прохождения финишной линии,")
+        state.value.raceDetailUI.raceUI.stackFinish.forEach {
+            csvBuilder.append("$it,")
+        }
+
+        // Write to file with UTF-16 encoding
+        OutputStreamWriter(file.outputStream(), StandardCharsets.UTF_16).use { writer ->
+            writer.write(csvBuilder.toString())
+        }
 
         // Notify user
         val toast = Toast.makeText(context, "Файл создан", Toast.LENGTH_SHORT)
         toast.show()
+        setState(state.value.copy(fileExist = true))
+        doAfter(context, file)
     }
+
+    fun openFile(context: Context, file: File) {
+        // Open the file
+        val uri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            FileProvider.getUriForFile(
+                context,
+                context.applicationContext.packageName + ".provider",
+                file
+            )
+        } else {
+            Uri.fromFile(file)
+        }
+
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "text/csv")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        if (intent.resolveActivity(context.packageManager) != null) {
+            context.startActivity(intent)
+        } else {
+            Toast.makeText(context, "Нет приложения для открытия файла", Toast.LENGTH_LONG).show()
+        }
+    }
+
 }
