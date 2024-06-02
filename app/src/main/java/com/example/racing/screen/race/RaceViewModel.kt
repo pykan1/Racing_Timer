@@ -90,10 +90,10 @@ class RaceViewModel @Inject constructor(
                     circleUI.copy(drivers = circleUI.drivers + driverUI.copy(
                         duration = state.value.seconds - state.value.circles.sumOf {
                             it.drivers.find { it.driverId == driverUI.driverId }?.duration ?: 0
-                        }
+                        }, useDuration = useDuration
                     ),
                         finishPenaltyDrivers = circleUI.finishPenaltyDrivers,
-                        penaltyFor = if (isPenalty) circleUI.penaltyFor + driverUI.driverId else circleUI.penaltyFor)
+                        penaltyFor = circleUI.penaltyFor)
                 } else {
                     circleUI
                 }
@@ -101,12 +101,40 @@ class RaceViewModel @Inject constructor(
             setState(
                 state.value.copy(
                     circles = circles,
-                    driversIdStack = state.value.driversIdStack.let {  it + driverUI.driverNumber }
+                    driversIdStack = state.value.driversIdStack.let { it + driverUI.driverNumber }
                 )
             )
         }
     }
 
+    fun minusCircle(driverUI: DriverCircleUI, isEmptyCircles: () -> Unit) {
+        viewModelScope.launch {
+            val changeCircle = state.value.circles.findLast {
+                driverUI.driverId in it.drivers.map { it.driverId }
+            }?.let { changeCircle ->
+                setState(
+                    state.value.copy(
+                        circles = state.value.circles.map {
+                            if (it.circleId == changeCircle.circleId) {
+                                changeCircle.copy(
+                                    drivers = changeCircle.drivers.map {
+                                        if (it.driverId == driverUI.driverId) {
+                                            it.copy(useDuration = false)
+                                        } else {
+                                            it
+                                        }
+                                    }
+                                )
+                            } else {
+                                it
+                            }
+                        }
+                    )
+                )
+            }?: isEmptyCircles()
+        }
+
+    }
 
     fun saveDrivers() {
         viewModelScope.launch {

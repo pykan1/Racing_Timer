@@ -138,9 +138,13 @@ class RaceScreen(private val raceId: Long) : Screen {
                     RaceAlertDialog(
                         title = state.race.raceTitle.let { if (it.isBlank()) "Заезд от ${state.race.createRace.formatTimestampToDateTimeString()}" else it },
                         onDismiss = { viewModel.driversAlert() }) {
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp) .verticalScroll(
-                            rememberScrollState()
-                        )) {
+                        Column(
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp, vertical = 10.dp)
+                                .verticalScroll(
+                                    rememberScrollState()
+                                )
+                        ) {
                             OutlinedTextField(value = state.searchDriver, onValueChange = {
                                 viewModel.changeSearchPlayers(it)
                             }, modifier = Modifier
@@ -162,7 +166,8 @@ class RaceScreen(private val raceId: Long) : Screen {
                             LazyColumn(
                                 Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 10.dp).heightIn(max = 300.dp),
+                                    .padding(top = 10.dp)
+                                    .heightIn(max = 300.dp),
                                 verticalArrangement = Arrangement.spacedBy(15.dp),
                                 contentPadding = PaddingValues(vertical = 16.dp)
                             ) {
@@ -231,7 +236,9 @@ class RaceScreen(private val raceId: Long) : Screen {
 //        }
         val vib = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -262,17 +269,18 @@ class RaceScreen(private val raceId: Long) : Screen {
                     .fillMaxWidth()
                     .padding(top = 16.dp)
             )
+
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
-                modifier = Modifier
-                    .padding(top = 30.dp)
+                contentPadding = PaddingValues(top = 30.dp, bottom = 5.dp),
+                modifier = Modifier.heightIn(max = 600.dp)
             ) {
                 items(state.selectDrivers) { driver ->
                     Column(
                         modifier = Modifier
-                            .size(150.dp)
+                            .size(250.dp)
                             .border(
                                 width = 1.dp,
                                 color = MaterialTheme.colorScheme.inverseSurface,
@@ -285,13 +293,17 @@ class RaceScreen(private val raceId: Long) : Screen {
                         var isMinusCircle: Boolean by remember {
                             mutableStateOf(false)
                         }
+                        var countMinus: Int by remember {
+                            mutableStateOf(0)
+                        }
                         Box(
                             modifier = Modifier
                                 .weight(0.7f)
                                 .fillMaxWidth()
                                 .clickable(enabled = state.startTimer) {
                                     sound(state, vib, context)
-                                    viewModel.addCircle(driver, isPenalty, isFinishPenalty)
+                                    viewModel.addCircle(driver, useDuration = !isMinusCircle)
+                                    isMinusCircle = false
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -306,26 +318,17 @@ class RaceScreen(private val raceId: Long) : Screen {
                                 .weight(0.3f)
                                 .fillMaxWidth()
                                 .background(MaterialTheme.colorScheme.error)
-                                .clickable(enabled = state.startTimer && (!isPenalty || !isFinishPenalty)) {
+                                .clickable(enabled = state.startTimer) {
                                     sound(state, vib, context)
-                                    if (!isPenalty) {
-                                        isPenalty = true
-                                    } else {
-                                        isPenalty = true
-                                        isFinishPenalty = true
+                                    countMinus++
+                                    viewModel.minusCircle(driverUI = driver) {
+                                        isMinusCircle = true
                                     }
-
                                 },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text =
-                                when {
-                                    isFinishPenalty && isPenalty -> "Буй был пройден"
-                                    isPenalty && !isFinishPenalty -> "Прошел"
-                                    else -> "Штрафной буй"
-
-                                },
+                                text = "-Круг (${countMinus})",
                                 style = MaterialTheme.typography.titleLarge,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -343,9 +346,7 @@ class RaceScreen(private val raceId: Long) : Screen {
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 30.dp),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                    .padding(vertical = 30.dp),
             )
         }
     }

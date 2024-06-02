@@ -80,7 +80,7 @@ class RaceTableScreen(private val raceId: Long) : Screen {
         }
 
         BackHandler {
-            navigator.replace(RacingScreen())
+            navigator.replaceAll(RacingScreen())
         }
 
         Column(
@@ -143,7 +143,7 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                     data = state.raceDetailUI.drivers.map { driver ->
                         val time = state.raceDetailUI.circles.sumOf { circle ->
                             circle.drivers.sumOf {
-                                if (it.driverId == driver.driverId && it.useDuration) it.duration else 0
+                                if (it.driverId == driver.driverId) it.duration else 0
                             }
                         }.formatSeconds()
                         Pair(time, false)
@@ -197,9 +197,8 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                                     driverCircle?.duration?.formatSeconds()
                                         .let {
                                             if (driverCircle?.useDuration == false && (driverCircle?.driverId
-                                                    ?: 0) in item.drivers.map { it.driverId } && (driverCircle?.driverId
-                                                    ?: 0) !in item.finishPenaltyDrivers
-                                            ) "${it.orEmpty()}(Не прошел штрафной буй)" else it.orEmpty()
+                                                    ?: 0) in item.drivers.map { it.driverId }
+                                            ) "${it.orEmpty()}(Штраф)" else it.orEmpty()
                                         },
                                     false
                                 )
