@@ -9,6 +9,6 @@ data class CircleModel (
     @PrimaryKey(autoGenerate = true)
     val circleId: Long = 0,
     val raceId: Long,
-    val isPenalty: Boolean,
+    val penaltyForIds: String,
     val finishPenaltyDrivers: String,
 )

@@ -136,7 +136,7 @@ class RaceRepositoryImpl @Inject constructor(
         circles.forEach {
             val circleModel = CircleModel(
                 raceId = race.raceId,
-                isPenalty = it.isPenalty,
+                penaltyForIds = it.penaltyFor.joinToString(" "),
                 finishPenaltyDrivers = it.finishPenaltyDrivers.joinToString(" "),
             )
             val circleId = circleRepository.insertLap(

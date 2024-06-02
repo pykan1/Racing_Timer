@@ -17,7 +17,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.Delete
@@ -155,6 +157,9 @@ class RacingScreen : Screen {
                     Column(
                         modifier = Modifier
                             .padding(horizontal = 16.dp, vertical = 10.dp)
+                            .verticalScroll(
+                                rememberScrollState()
+                            )
                     ) {
                         OutlinedTextField(
                             modifier = Modifier.fillMaxWidth(),

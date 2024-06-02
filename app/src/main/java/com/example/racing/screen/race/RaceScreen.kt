@@ -24,7 +24,9 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Create
@@ -39,6 +41,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -133,7 +138,9 @@ class RaceScreen(private val raceId: Long) : Screen {
                     RaceAlertDialog(
                         title = state.race.raceTitle.let { if (it.isBlank()) "Заезд от ${state.race.createRace.formatTimestampToDateTimeString()}" else it },
                         onDismiss = { viewModel.driversAlert() }) {
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp) .verticalScroll(
+                            rememberScrollState()
+                        )) {
                             OutlinedTextField(value = state.searchDriver, onValueChange = {
                                 viewModel.changeSearchPlayers(it)
                             }, modifier = Modifier
@@ -155,7 +162,7 @@ class RaceScreen(private val raceId: Long) : Screen {
                             LazyColumn(
                                 Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 10.dp),
+                                    .padding(top = 10.dp).heightIn(max = 300.dp),
                                 verticalArrangement = Arrangement.spacedBy(15.dp),
                                 contentPadding = PaddingValues(vertical = 16.dp)
                             ) {
@@ -258,10 +265,9 @@ class RaceScreen(private val raceId: Long) : Screen {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(100.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
                 modifier = Modifier
                     .padding(top = 30.dp)
-                    .heightIn(max = 250.dp)
             ) {
                 items(state.selectDrivers) { driver ->
                     Column(
@@ -276,16 +282,16 @@ class RaceScreen(private val raceId: Long) : Screen {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        val isPenalty =
-                            state.circles.any { it.isPenalty && driver.driverId in it.drivers.map { it.driverId } && driver.driverId !in it.finishPenaltyDrivers }
-
+                        var isMinusCircle: Boolean by remember {
+                            mutableStateOf(false)
+                        }
                         Box(
                             modifier = Modifier
                                 .weight(0.7f)
                                 .fillMaxWidth()
-                                .clickable(enabled = state.startTimer && !isPenalty) {
+                                .clickable(enabled = state.startTimer) {
                                     sound(state, vib, context)
-                                    viewModel.addCircle(driver, false)
+                                    viewModel.addCircle(driver, isPenalty, isFinishPenalty)
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -300,18 +306,26 @@ class RaceScreen(private val raceId: Long) : Screen {
                                 .weight(0.3f)
                                 .fillMaxWidth()
                                 .background(MaterialTheme.colorScheme.error)
-                                .clickable(enabled = state.startTimer) {
+                                .clickable(enabled = state.startTimer && (!isPenalty || !isFinishPenalty)) {
                                     sound(state, vib, context)
-                                    if (isPenalty) {
-                                        viewModel.finishPenaltyCircle(driver.driverId)
+                                    if (!isPenalty) {
+                                        isPenalty = true
                                     } else {
-                                        viewModel.addCircle(driver, true)
+                                        isPenalty = true
+                                        isFinishPenalty = true
                                     }
+
                                 },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = if (isPenalty) "Прошел" else "Штрафной буй",
+                                text =
+                                when {
+                                    isFinishPenalty && isPenalty -> "Буй был пройден"
+                                    isPenalty && !isFinishPenalty -> "Прошел"
+                                    else -> "Штрафной буй"
+
+                                },
                                 style = MaterialTheme.typography.titleLarge,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,

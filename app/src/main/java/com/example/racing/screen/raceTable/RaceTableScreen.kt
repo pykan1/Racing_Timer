@@ -132,7 +132,7 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                     title = Pair("Участник", false),
                     data = state.raceDetailUI.drivers.map {
                         Pair(
-                            "${it.driverNumber}\n${it.name} ${it.lastName}",
+                            "${it.driverNumber} ${it.name} ${it.lastName}",
                             false
                         )
                     },
@@ -143,8 +143,7 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                     data = state.raceDetailUI.drivers.map { driver ->
                         val time = state.raceDetailUI.circles.sumOf { circle ->
                             circle.drivers.sumOf {
-                                println(it)
-                                if (it.driverId == driver.driverId && !circle.isPenalty && it.useDuration) it.duration else 0
+                                if (it.driverId == driver.driverId && it.useDuration) it.duration else 0
                             }
                         }.formatSeconds()
                         Pair(time, false)
@@ -187,22 +186,22 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                     TableCell(
                         modifier = Modifier.weight(1f),
                         title = Pair(
-                            if (item.isPenalty) "Штрафной круг" else "Круг ${index + 1}",
-                            item.isPenalty
+                            "Круг ${index + 1}",
+                            false
                         ),
                         data = state.raceDetailUI.drivers.map { driver ->
                             item.drivers.find {
-                              it.driverId == driver.driverId
+                                it.driverId == driver.driverId
                             }.let { driverCircle ->
                                 Pair(
                                     driverCircle?.duration?.formatSeconds()
                                         .let {
-                                            if (item.isPenalty && (driverCircle?.driverId
+                                            if (driverCircle?.useDuration == false && (driverCircle?.driverId
                                                     ?: 0) in item.drivers.map { it.driverId } && (driverCircle?.driverId
                                                     ?: 0) !in item.finishPenaltyDrivers
-                                            ) "Не прошел штрафной круг" else it.orEmpty()
+                                            ) "${it.orEmpty()}(Не прошел штрафной буй)" else it.orEmpty()
                                         },
-                                    !(driverCircle?.useDuration ?: true)
+                                    false
                                 )
                             }
                         },
@@ -229,7 +228,7 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                     title = Pair("Круг", false),
                     data = state.raceDetailUI.circles.mapIndexed { index, circleUI ->
                         Pair(
-                            if (!circleUI.isPenalty) (index + 1).toString() else "Штрафной",
+                            "Круг ${(index + 1)}",
                             false
                         )
                     },
@@ -374,7 +373,7 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(40.dp)
+                        .height(60.dp)
                 ) {
                     Divider(modifier = Modifier.fillMaxWidth())
                     Text(

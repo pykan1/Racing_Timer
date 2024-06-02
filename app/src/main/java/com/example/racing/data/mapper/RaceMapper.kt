@@ -57,7 +57,7 @@ fun CircleModel.toUI(
     return CircleUI(
         circleId = circleId,
         raceId = raceId,
-        isPenalty = isPenalty,
+        penaltyFor = penaltyForIds.split(" ").map { it.toLongOrNull() ?: -1 },
         drivers = driversCircle.map { it.toUI(drivers) },
         finishPenaltyDrivers = finishPenaltyDrivers.split(" ").map { it.toLongOrNull() ?: -1 },
     )
@@ -76,7 +76,7 @@ fun CircleDriverCrossRef.toUI(drivers: List<DriverModel>): DriverCircleUI {
 }
 
 
-fun DriverUI.toDriverCircleUI(duration: Long = 0, useDuration: Boolean= true): DriverCircleUI {
+fun DriverUI.toDriverCircleUI(duration: Long = 0, useDuration: Boolean = true): DriverCircleUI {
     return DriverCircleUI(
         driverId = driverId,
         driverNumber = driverNumber,

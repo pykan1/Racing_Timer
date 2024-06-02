@@ -57,7 +57,7 @@ class RaceTableViewModel @Inject constructor(
                 state.value.copy(
                     raceDetailUI = raceDetail.copy(
                         drivers = rankDrivers,
-                        circles = raceDetail.circles.sortedBy { it.isPenalty }),
+                        circles = raceDetail.circles),
                     fileExist = isExist
                 )
             )
@@ -80,7 +80,7 @@ class RaceTableViewModel @Inject constructor(
                 val result =
                     driverResults.getOrPut(driver.driverId) { DriverResult(driver.driverId) }
                 result.totalDuration += if (driver.useDuration) driver.duration else 0
-                if (circle.isPenalty || !driver.useDuration) {
+                if (!driver.useDuration) {
                     result.penaltyCircles += 1
                 } else {
                     result.nonPenaltyCircles += 1
@@ -182,7 +182,7 @@ class RaceTableViewModel @Inject constructor(
         state.value.raceDetailUI.drivers.forEachIndexed { index, driver ->
             val time = state.value.raceDetailUI.circles.sumOf { circle ->
                 circle.drivers.sumOf {
-                    if (it.driverId == driver.driverId && !circle.isPenalty && it.useDuration) it.duration else 0
+                    if (it.driverId == driver.driverId && it.useDuration) it.duration else 0
                 }
             }.formatSeconds()
 
@@ -197,7 +197,7 @@ class RaceTableViewModel @Inject constructor(
         // Second table headers
         csvBuilder.append("\nУчастник,")
         state.value.raceDetailUI.circles.forEachIndexed { index, circle ->
-            csvBuilder.append(if (circle.isPenalty) "Штрафной круг," else "Круг ${index + 1},")
+            csvBuilder.append("Круг ${index + 1},")
         }
         csvBuilder.append("\n")
 
@@ -208,11 +208,11 @@ class RaceTableViewModel @Inject constructor(
                 val driverCircle = circle.drivers.find { it.driverId == driver.driverId }
                 val time = driverCircle?.duration?.formatSeconds() ?: ""
                 val circleData =
-                    if (circle.isPenalty && driver.driverId !in circle.finishPenaltyDrivers) {
-                        "Не прошел штрафной круг"
+                    if (driver.driverId in circle.penaltyFor && driver.driverId !in circle.finishPenaltyDrivers) {
+                        "$time (Не прошел штрафной буй)"
                     } else {
-                        if (driverCircle?.useDuration == false) {
-                            "$time(Не засчитано)"
+                        if (driverCircle?.useDuration == true && driverCircle.driverId in circle.finishPenaltyDrivers) {
+                            "$time(с буем)"
                         } else {
                             time
                         }
@@ -227,7 +227,7 @@ class RaceTableViewModel @Inject constructor(
 
         // Third table data
         state.value.raceDetailUI.circles.forEachIndexed { index, circle ->
-            csvBuilder.append("${if (!circle.isPenalty) "Круг ${(index + 1)}" else "Штрафной круг"},")
+            csvBuilder.append("Круг ${(index + 1)},")
             csvBuilder.append(circle.drivers.joinToString(", ") { it.driverNumber.toString() })
             csvBuilder.append("\n")
         }
