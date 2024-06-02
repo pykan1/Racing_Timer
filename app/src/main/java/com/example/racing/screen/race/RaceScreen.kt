@@ -1,12 +1,10 @@
 package com.example.racing.screen.race
 
 import android.content.Context
-import android.content.Context.VIBRATOR_SERVICE
 import android.media.RingtoneManager
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
-import android.os.VibratorManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -216,14 +214,15 @@ class RaceScreen(private val raceId: Long) : Screen {
     @Composable
     private fun RaceTimerContent(viewModel: RaceViewModel, state: RaceState) {
         val context = LocalContext.current
-        val vib = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vibratorManager =
-                context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-            vibratorManager.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            context.getSystemService(VIBRATOR_SERVICE) as Vibrator
-        }
+//        val vib = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+//            val vibratorManager =
+//                context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+//            vibratorManager.defaultVibrator
+//        } else {
+//            @Suppress("DEPRECATION")
+//            context.getSystemService(VIBRATOR_SERVICE) as Vibrator
+//        }
+        val vib = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -234,7 +233,10 @@ class RaceScreen(private val raceId: Long) : Screen {
                 modifier = Modifier.padding(vertical = 5.dp)
             )
             Button(
-                onClick = { viewModel.changeIsTimer() },
+                onClick = {
+                    sound(state, vib, context)
+                    viewModel.changeIsTimer()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp)
@@ -269,27 +271,20 @@ class RaceScreen(private val raceId: Long) : Screen {
                                 width = 1.dp,
                                 color = MaterialTheme.colorScheme.inverseSurface,
                                 shape = RoundedCornerShape(10.dp)
-                            ).clip(RoundedCornerShape(10.dp)),
+                            )
+                            .clip(RoundedCornerShape(10.dp)),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        val isPenalty = state.circles.any { it.isPenalty && driver.driverId in it.drivers.map { it.driverId } && driver.driverId !in it.finishPenaltyDrivers }
+                        val isPenalty =
+                            state.circles.any { it.isPenalty && driver.driverId in it.drivers.map { it.driverId } && driver.driverId !in it.finishPenaltyDrivers }
 
                         Box(
                             modifier = Modifier
                                 .weight(0.7f)
                                 .fillMaxWidth()
                                 .clickable(enabled = state.startTimer && !isPenalty) {
-                                    if (state.settings.vibration) {
-                                        vib.vibrate(VibrationEffect.createOneShot(200, 150))
-                                    }
-                                    if (state.settings.bleeper) {
-                                        val notification =
-                                            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                                        val ringtone =
-                                            RingtoneManager.getRingtone(context, notification)
-                                        ringtone.play()
-                                    }
+                                    sound(state, vib, context)
                                     viewModel.addCircle(driver, false)
                                 },
                             contentAlignment = Alignment.Center
@@ -306,16 +301,7 @@ class RaceScreen(private val raceId: Long) : Screen {
                                 .fillMaxWidth()
                                 .background(MaterialTheme.colorScheme.error)
                                 .clickable(enabled = state.startTimer) {
-                                    if (state.settings.vibration) {
-                                        vib.vibrate(VibrationEffect.createOneShot(200, 150))
-                                    }
-                                    if (state.settings.bleeper) {
-                                        val notification =
-                                            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                                        val ringtone =
-                                            RingtoneManager.getRingtone(context, notification)
-                                        ringtone.play()
-                                    }
+                                    sound(state, vib, context)
                                     if (isPenalty) {
                                         viewModel.finishPenaltyCircle(driver.driverId)
                                     } else {
@@ -325,8 +311,10 @@ class RaceScreen(private val raceId: Long) : Screen {
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = if(isPenalty) "Завершить" else "Штраф",
+                                text = if (isPenalty) "Прошел" else "Штрафной буй",
                                 style = MaterialTheme.typography.titleLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.padding(start = 5.dp, end = 5.dp),
                             )
                         }
@@ -345,6 +333,29 @@ class RaceScreen(private val raceId: Long) : Screen {
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+    }
+
+    private fun sound(
+        state: RaceState,
+        vib: Vibrator,
+        context: Context
+    ) {
+        println(state.settings)
+        if (state.settings.vibration) {
+            if (Build.VERSION.SDK_INT >= 26) {
+
+                vib.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                vib.vibrate(400)
+            }
+        }
+        if (state.settings.bleeper) {
+            val notification =
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val ringtone =
+                RingtoneManager.getRingtone(context, notification)
+            ringtone.play()
         }
     }
 

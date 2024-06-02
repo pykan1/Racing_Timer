@@ -17,7 +17,7 @@ fun RaceWithDriversModel.toUI(): RaceUI {
         createRace = race.createRace,
         duration = race.duration,
         finish = race.finish,
-        stackFinish = race.stackFinish.split(", ").map { it.toLongOrNull() ?: 0 }
+        stackFinish = race.stackFinish.split(", ").map { it.toLongOrNull() ?: -1 }
     )
 }
 
@@ -30,7 +30,7 @@ fun RaceModel.toUI(): RaceUI {
         createRace = race.createRace,
         duration = race.duration,
         finish = race.finish,
-        stackFinish = stackFinish.split(", ").map { it.toLongOrNull() ?: 0 }
+        stackFinish = stackFinish.split(", ").map { it.toLongOrNull() ?: -1 }
     )
 }
 

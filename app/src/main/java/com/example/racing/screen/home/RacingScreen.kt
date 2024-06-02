@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.outlined.Close
@@ -114,6 +115,14 @@ class RacingScreen : Screen {
                                         modifier = Modifier.padding(top = 10.dp)
                                     )
                                 }
+
+                                IconButton(onClick = { viewModel.deleteRace(it) }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
                             }
                             Divider(modifier = Modifier.fillMaxWidth())
                         }
@@ -177,7 +186,8 @@ class RacingScreen : Screen {
                         LazyColumn(
                             Modifier
                                 .fillMaxWidth()
-                                .padding(top = 10.dp).heightIn(max = 300.dp),
+                                .padding(top = 10.dp)
+                                .heightIn(max = 300.dp),
                             verticalArrangement = Arrangement.spacedBy(15.dp),
                             contentPadding = PaddingValues(vertical = 16.dp)
                         ) {
@@ -250,8 +260,7 @@ internal fun RaceAlertDialog(
                     MaterialTheme.colorScheme.surface,
                     shape = RoundedCornerShape(8.dp)
                 )
-                .heightIn(max = 500.dp)
-             ,
+                .heightIn(max = 500.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(

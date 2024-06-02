@@ -1,5 +1,8 @@
 package com.example.racing.screen.settings
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +31,14 @@ class SettingsScreen : Screen {
     override fun Content() {
         val viewModel = hiltViewModel<SettingsViewModel>()
         val state by viewModel.state.collectAsState()
+        val vibrationPermission =
+            rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestPermission()) { isGranted ->
+                if (isGranted || state.settingsUI.vibration) {
+                    viewModel.changeVibration()
+                } else {
+                    viewModel.changeVibration()
+                }
+            }
         DefaultBoxPage {
             Column(
                 modifier = Modifier
@@ -63,7 +74,7 @@ class SettingsScreen : Screen {
                     )
 
                     Switch(checked = state.settingsUI.vibration, onCheckedChange = {
-                        viewModel.changeVibration()
+                        vibrationPermission.launch(Manifest.permission.VIBRATE)
                     }, modifier = Modifier.size(32.dp))
 
                 }

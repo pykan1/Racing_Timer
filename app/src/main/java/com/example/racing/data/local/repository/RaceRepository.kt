@@ -1,6 +1,7 @@
 package com.example.racing.data.local.repository
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -24,5 +25,8 @@ interface RaceRepository {
 
     @Update
     suspend fun updateRace(raceModel: RaceModel)
+
+    @Delete
+    suspend fun deleteRace(raceModel: RaceModel)
 
 }

@@ -3,6 +3,7 @@ package com.example.racing.screen.home
 import androidx.lifecycle.viewModelScope
 import com.example.racing.data.local.repositoryImpl.RaceRepositoryImpl
 import com.example.racing.domain.models.DriverUI
+import com.example.racing.domain.models.RaceUI
 import com.example.racing.screen.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -95,6 +96,15 @@ class RacingViewModel @Inject constructor(private val raceRepositoryImpl: RaceRe
                     state.value.selectPlayers.map { it.driverId })
                 clearAlert()
 
+            }.join()
+            loadData()
+        }
+    }
+
+    fun deleteRace(it: RaceUI) {
+        viewModelScope.launch {
+            viewModelScope.launch {
+                raceRepositoryImpl.deleteRace(raceUI = it)
             }.join()
             loadData()
         }

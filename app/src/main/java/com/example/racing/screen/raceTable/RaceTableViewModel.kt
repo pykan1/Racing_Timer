@@ -61,6 +61,13 @@ class RaceTableViewModel @Inject constructor(
                     fileExist = isExist
                 )
             )
+            storeManager.getSettings().collect {
+                setState(
+                    state.value.copy(
+                        settingsUI = it
+                    )
+                )
+            }
         }
     }
 
@@ -135,25 +142,23 @@ class RaceTableViewModel @Inject constructor(
                     context.applicationContext.packageName + ".provider",
                     file
                 )
-            storeManager.getSettings().collect {
-                val intent = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/csv"
-                    putExtra(Intent.EXTRA_EMAIL, arrayOf(it.email))
-                    putExtra(
-                        Intent.EXTRA_SUBJECT,
-                        """Результаты заезда "${state.value.raceDetailUI.raceUI.raceTitle}" """
-                    )
-                    putExtra(Intent.EXTRA_TEXT, "Результаты заезда")
-                    putExtra(Intent.EXTRA_STREAM, uri)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/csv"
+                putExtra(Intent.EXTRA_EMAIL, arrayOf(state.value.settingsUI.email))
+                putExtra(
+                    Intent.EXTRA_SUBJECT,
+                    """Результаты заезда "${state.value.raceDetailUI.raceUI.raceTitle}" """
+                )
+                putExtra(Intent.EXTRA_TEXT, "Результаты заезда")
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
 
-                if (intent.resolveActivity(context.packageManager) != null) {
-                    context.startActivity(Intent.createChooser(intent, "Отправить Email"))
-                } else {
-                    Toast.makeText(context, "Нет приложения для отправки Email", Toast.LENGTH_LONG)
-                        .show()
-                }
+            if (intent.resolveActivity(context.packageManager) != null) {
+                context.startActivity(Intent.createChooser(intent, "Отправить Email"))
+            } else {
+                Toast.makeText(context, "Нет приложения для отправки Email", Toast.LENGTH_LONG)
+                    .show()
             }
         }
     }
@@ -206,7 +211,11 @@ class RaceTableViewModel @Inject constructor(
                     if (circle.isPenalty && driver.driverId !in circle.finishPenaltyDrivers) {
                         "Не прошел штрафной круг"
                     } else {
-                        time
+                        if (driverCircle?.useDuration == false) {
+                            "$time(Не засчитано)"
+                        } else {
+                            time
+                        }
                     }
                 csvBuilder.append("${circleData},")
             }
@@ -218,7 +227,7 @@ class RaceTableViewModel @Inject constructor(
 
         // Third table data
         state.value.raceDetailUI.circles.forEachIndexed { index, circle ->
-            csvBuilder.append("${if (!circle.isPenalty) (index + 1).toString() else "Штрафной"},")
+            csvBuilder.append("${if (!circle.isPenalty) "Круг ${(index + 1)}" else "Штрафной круг"},")
             csvBuilder.append(circle.drivers.joinToString(", ") { it.driverNumber.toString() })
             csvBuilder.append("\n")
         }

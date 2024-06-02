@@ -44,6 +44,19 @@ class RaceRepositoryImpl @Inject constructor(
         )
     }
 
+    suspend fun deleteRace(raceUI: RaceUI) {
+        raceRepository.deleteRace(
+            raceModel = RaceModel(
+                raceId = raceUI.raceId,
+                raceTitle = raceUI.raceTitle,
+                createRace = raceUI.createRace,
+                duration = raceUI.duration,
+                finish = raceUI.finish,
+                stackFinish = raceUI.stackFinish.joinToString(", ")
+            )
+        )
+    }
+
     suspend fun getRaceById(id: Long): RaceUI {
         return raceRepository.getRaceWithDriversById(id).toUI()
     }
