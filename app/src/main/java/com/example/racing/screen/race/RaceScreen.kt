@@ -5,7 +5,6 @@ import android.media.RingtoneManager
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -33,17 +33,16 @@ import androidx.compose.material.icons.outlined.Create
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Divider
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -93,128 +92,150 @@ class RaceScreen(private val raceId: Long) : Screen {
         }
 
         DefaultBoxPage {
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                when (state.saveDrivers) {
-                    true -> {
-                        RaceTimerContent(viewModel, state)
-                    }
-
-                    false -> {
-                        Box(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Перед началом заезда, выберите участников из базы",
-                                style = MaterialTheme.typography.titleLarge,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.align(Alignment.Center)
-                            )
-                        }
-
-                        Box(modifier = Modifier.weight(1f)) {
-                            Button(
-                                onClick = { viewModel.driversAlert() },
-                                modifier = Modifier
-                                    .height(50.dp)
-                                    .fillMaxWidth()
-                                    .align(Alignment.TopCenter),
-                            ) {
-                                Text(
-                                    text = "Выбрать участников заезда",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+            Scaffold(floatingActionButton = {
+                state.circles.findLast {
+                    (state.driversIdStack.lastOrNull() ?: -1) in it.drivers.map { it.driverNumber }
+                }?.let { circle ->
+                    circle.drivers.find {
+                        it.driverNumber == (state.driversIdStack.lastOrNull() ?: -1)
+                    }?.let {
+                        if (it.useDuration) {
+                            FloatingActionButton(
+                                modifier = Modifier.size(130.dp),
+                                onClick = { viewModel.minusCircle(driverUI = it) }) {
+                                Text(text = "ШТРАФ (${it.driverNumber})", style = MaterialTheme.typography.titleLarge)
                             }
                         }
                     }
                 }
+            }) {
 
-                if (state.driversAlert) {
-                    RaceAlertDialog(
-                        title = state.race.raceTitle.let { if (it.isBlank()) "Заезд от ${state.race.createRace.formatTimestampToDateTimeString()}" else it },
-                        onDismiss = { viewModel.driversAlert() }) {
-                        Column(
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp, vertical = 10.dp)
-                                .verticalScroll(
-                                    rememberScrollState()
-                                )
-                        ) {
-                            OutlinedTextField(value = state.searchDriver, onValueChange = {
-                                viewModel.changeSearchPlayers(it)
-                            }, modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 16.dp), leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = null
-                                )
-                            }, placeholder = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(it),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    when (state.saveDrivers) {
+                        true -> {
+                            RaceTimerContent(viewModel, state)
+                        }
+
+                        false -> {
+                            Box(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Поиск участников",
-                                    style = MaterialTheme.typography.titleSmall.copy(
-                                        color = MaterialTheme.typography.titleSmall.color
-                                    )
+                                    text = "Перед началом заезда, выберите участников из базы",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.align(Alignment.Center)
                                 )
-                            })
-
-                            LazyColumn(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 10.dp)
-                                    .heightIn(max = 300.dp),
-                                verticalArrangement = Arrangement.spacedBy(15.dp),
-                                contentPadding = PaddingValues(vertical = 16.dp)
-                            ) {
-                                items(state.drivers) { driver ->
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.clickable {
-                                            viewModel.changeSelectPlayers(driver)
-                                        }) {
-                                        Checkbox(
-                                            checked = driver in state.selectDrivers,
-                                            onCheckedChange = {
-                                                viewModel.changeSelectPlayers(driver)
-                                            },
-                                            modifier = Modifier.size(24.dp)
-                                        )
-
-                                        Text(
-                                            text = "${driver.driverNumber} ${driver.lastName} ${driver.name}",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            modifier = Modifier.padding(start = 10.dp)
-                                        )
-                                    }
-                                }
                             }
 
-                            Button(
-                                enabled = state.selectDrivers.isNotEmpty(),
-                                onClick = {
-                                    viewModel.saveDrivers()
+                            Box(modifier = Modifier.weight(1f)) {
+                                Button(
+                                    onClick = { viewModel.driversAlert() },
+                                    modifier = Modifier
+                                        .height(50.dp)
+                                        .fillMaxWidth()
+                                        .align(Alignment.TopCenter),
+                                ) {
+                                    Text(
+                                        text = "Выбрать участников заезда",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (state.driversAlert) {
+                        RaceAlertDialog(
+                            title = state.race.raceTitle.let { if (it.isBlank()) "Заезд от ${state.race.createRace.formatTimestampToDateTimeString()}" else it },
+                            onDismiss = { viewModel.driversAlert() }) {
+                            Column(
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                                    .verticalScroll(
+                                        rememberScrollState()
+                                    )
+                            ) {
+                                OutlinedTextField(value = state.searchDriver, onValueChange = {
+                                    viewModel.changeSearchPlayers(it)
                                 }, modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(
-                                        bottom = 20.dp,
-                                        start = 16.dp,
-                                        end = 16.dp,
-                                        top = 15.dp
+                                    .padding(top = 16.dp), leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = null
                                     )
-                                    .height(50.dp)
-                            ) {
-                                Icon(imageVector = Icons.Outlined.Create, contentDescription = null)
+                                }, placeholder = {
+                                    Text(
+                                        text = "Поиск участников",
+                                        style = MaterialTheme.typography.titleSmall.copy(
+                                            color = MaterialTheme.typography.titleSmall.color
+                                        )
+                                    )
+                                })
 
-                                Text(
-                                    text = "Выбрать участников",
-                                    fontSize = 18.sp,
-                                    modifier = Modifier.padding(start = 10.dp)
-                                )
+                                LazyColumn(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 10.dp)
+                                        .heightIn(max = 300.dp),
+                                    verticalArrangement = Arrangement.spacedBy(15.dp),
+                                    contentPadding = PaddingValues(vertical = 16.dp)
+                                ) {
+                                    items(state.drivers) { driver ->
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.clickable {
+                                                viewModel.changeSelectPlayers(driver)
+                                            }) {
+                                            Checkbox(
+                                                checked = driver in state.selectDrivers,
+                                                onCheckedChange = {
+                                                    viewModel.changeSelectPlayers(driver)
+                                                },
+                                                modifier = Modifier.size(24.dp)
+                                            )
+
+                                            Text(
+                                                text = "${driver.driverNumber} ${driver.lastName} ${driver.name}",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                modifier = Modifier.padding(start = 10.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Button(
+                                    enabled = state.selectDrivers.isNotEmpty(),
+                                    onClick = {
+                                        viewModel.saveDrivers()
+                                    }, modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(
+                                            bottom = 20.dp,
+                                            start = 16.dp,
+                                            end = 16.dp,
+                                            top = 15.dp
+                                        )
+                                        .height(50.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Create,
+                                        contentDescription = null
+                                    )
+
+                                    Text(
+                                        text = "Выбрать участников",
+                                        fontSize = 18.sp,
+                                        modifier = Modifier.padding(start = 10.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -226,19 +247,10 @@ class RaceScreen(private val raceId: Long) : Screen {
     @Composable
     private fun RaceTimerContent(viewModel: RaceViewModel, state: RaceState) {
         val context = LocalContext.current
-//        val vib = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-//            val vibratorManager =
-//                context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-//            vibratorManager.defaultVibrator
-//        } else {
-//            @Suppress("DEPRECATION")
-//            context.getSystemService(VIBRATOR_SERVICE) as Vibrator
-//        }
         val vib = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
+                .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -271,16 +283,16 @@ class RaceScreen(private val raceId: Long) : Screen {
             )
 
             LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
+                columns = GridCells.Fixed(10),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
                 contentPadding = PaddingValues(top = 30.dp, bottom = 5.dp),
-                modifier = Modifier.heightIn(max = 600.dp)
+                modifier = Modifier.weight(1f)
             ) {
                 items(state.selectDrivers) { driver ->
                     Column(
                         modifier = Modifier
-                            .size(250.dp)
+                            .size(100.dp).fillMaxWidth()
                             .border(
                                 width = 1.dp,
                                 color = MaterialTheme.colorScheme.inverseSurface,
@@ -290,20 +302,12 @@ class RaceScreen(private val raceId: Long) : Screen {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        var isMinusCircle: Boolean by remember {
-                            mutableStateOf(false)
-                        }
-                        var countMinus: Int by remember {
-                            mutableStateOf(0)
-                        }
                         Box(
                             modifier = Modifier
-                                .weight(0.7f)
-                                .fillMaxWidth()
+                                .fillMaxSize()
                                 .clickable(enabled = state.startTimer) {
                                     sound(state, vib, context)
-                                    viewModel.addCircle(driver, useDuration = !isMinusCircle)
-                                    isMinusCircle = false
+                                    viewModel.addCircle(driver, useDuration = true)
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -313,29 +317,6 @@ class RaceScreen(private val raceId: Long) : Screen {
                                 modifier = Modifier.padding(start = 5.dp, end = 5.dp),
                             )
                         }
-                        Box(
-                            modifier = Modifier
-                                .weight(0.3f)
-                                .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.error)
-                                .clickable(enabled = state.startTimer) {
-                                    sound(state, vib, context)
-                                    countMinus++
-                                    viewModel.minusCircle(driverUI = driver) {
-                                        isMinusCircle = true
-                                    }
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "-Круг (${countMinus})",
-                                style = MaterialTheme.typography.titleLarge,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(start = 5.dp, end = 5.dp),
-                            )
-                        }
-
                     }
 
                 }
@@ -346,7 +327,7 @@ class RaceScreen(private val raceId: Long) : Screen {
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 30.dp),
+                    .padding(vertical = 15.dp),
             )
         }
     }

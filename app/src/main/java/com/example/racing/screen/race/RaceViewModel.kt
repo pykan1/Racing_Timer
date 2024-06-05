@@ -107,7 +107,7 @@ class RaceViewModel @Inject constructor(
         }
     }
 
-    fun minusCircle(driverUI: DriverCircleUI, isEmptyCircles: () -> Unit) {
+    fun minusCircle(driverUI: DriverCircleUI, isEmptyCircles: () -> Unit = {}) {
         viewModelScope.launch {
             val changeCircle = state.value.circles.findLast {
                 driverUI.driverId in it.drivers.map { it.driverId }
