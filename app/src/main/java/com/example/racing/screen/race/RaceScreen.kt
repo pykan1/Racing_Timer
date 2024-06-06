@@ -72,7 +72,8 @@ class RaceScreen(private val raceId: Long) : Screen {
         val viewModel = hiltViewModel<RaceViewModel>()
         val state by viewModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
-
+        val context = LocalContext.current
+        val vib = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         LaunchedEffect(viewModel) {
             viewModel.loadRace(raceId)
         }
@@ -101,8 +102,15 @@ class RaceScreen(private val raceId: Long) : Screen {
                         if (it.useDuration) {
                             FloatingActionButton(
                                 modifier = Modifier.size(155.dp),
-                                onClick = { viewModel.minusCircle(driverUI = it) }) {
-                                Text(text = "ШТРАФ (${it.driverNumber})", style = MaterialTheme.typography.titleLarge)
+                                onClick = {
+                                    sound(state = state, context = context, vib = vib)
+                                    viewModel.minusCircle(driverUI = it)
+                                }
+                            ) {
+                                Text(
+                                    text = "ШТРАФ (${it.driverNumber})",
+                                    style = MaterialTheme.typography.titleLarge
+                                )
                             }
                         }
                     }
@@ -291,7 +299,8 @@ class RaceScreen(private val raceId: Long) : Screen {
                 items(state.selectDrivers) { driver ->
                     Column(
                         modifier = Modifier
-                            .size(100.dp).fillMaxWidth()
+                            .size(100.dp)
+                            .fillMaxWidth()
                             .border(
                                 width = 1.dp,
                                 color = MaterialTheme.colorScheme.inverseSurface,
