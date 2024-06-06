@@ -100,7 +100,7 @@ class RaceScreen(private val raceId: Long) : Screen {
                     }?.let {
                         if (it.useDuration) {
                             FloatingActionButton(
-                                modifier = Modifier.size(145.dp),
+                                modifier = Modifier.size(155.dp),
                                 onClick = { viewModel.minusCircle(driverUI = it) }) {
                                 Text(text = "ШТРАФ (${it.driverNumber})", style = MaterialTheme.typography.titleLarge)
                             }
