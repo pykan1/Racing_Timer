@@ -80,7 +80,7 @@ class RaceScreen(private val raceId: Long) : Screen {
 
         LaunchedEffect(key1 = state.startTimer, key2 = state.seconds) {
             if (state.startTimer) {
-                delay(1000L)
+                delay(995L)
                 viewModel.changeSeconds()
             }
         }
@@ -101,7 +101,7 @@ class RaceScreen(private val raceId: Long) : Screen {
                     }?.let {
                         if (it.useDuration) {
                             FloatingActionButton(
-                                modifier = Modifier.size(130.dp),
+                                modifier = Modifier.size(145.dp),
                                 onClick = { viewModel.minusCircle(driverUI = it) }) {
                                 Text(text = "ШТРАФ (${it.driverNumber})", style = MaterialTheme.typography.titleLarge)
                             }
