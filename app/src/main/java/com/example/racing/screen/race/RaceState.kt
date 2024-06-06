@@ -23,7 +23,7 @@ data class RaceState(
     companion object {
         val InitState = RaceState(
             RaceUI.Default,
-            "", emptyList(), emptyList(), false, 0, emptyList(), false, false, emptyList(), saveRace = false, settings = SettingsUI.Default
+            "", emptyList(), emptyList(), true, 0, emptyList(), false, false, emptyList(), saveRace = false, settings = SettingsUI.Default
         )
     }
 }

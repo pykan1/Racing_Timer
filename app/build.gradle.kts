@@ -87,9 +87,6 @@ dependencies {
     // Screen Model
     implementation("cafe.adriel.voyager:voyager-screenmodel:$voyagerVersion")
 
-    // BottomSheetNavigator
-    implementation("cafe.adriel.voyager:voyager-bottom-sheet-navigator:$voyagerVersion")
-
     // TabNavigator
     implementation("cafe.adriel.voyager:voyager-tab-navigator:$voyagerVersion")
 

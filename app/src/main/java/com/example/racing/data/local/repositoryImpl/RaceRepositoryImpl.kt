@@ -44,6 +44,13 @@ class RaceRepositoryImpl @Inject constructor(
         )
     }
 
+    suspend fun getDriversByRaceId(id: Long) : List<DriverUI>{
+       return driverRepository.getDriversByRaceId(id).map {
+           val driver = driverRepository.getDriverById(it.driverId)
+           driver.toUI()
+       }
+    }
+
     suspend fun deleteRace(raceUI: RaceUI) {
         raceRepository.deleteRace(
             raceModel = RaceModel(

@@ -75,7 +75,6 @@ class RaceScreen(private val raceId: Long) : Screen {
 
         LaunchedEffect(viewModel) {
             viewModel.loadRace(raceId)
-            viewModel.loadPlayers()
         }
 
         LaunchedEffect(key1 = state.startTimer, key2 = state.seconds) {

@@ -34,7 +34,6 @@ class RaceViewModel @Inject constructor(
                 )
             }
         }
-        loadPlayers()
     }
 
     fun loadRace(id: Long) {
@@ -42,7 +41,9 @@ class RaceViewModel @Inject constructor(
             val race = raceRepositoryImpl.getRaceById(id)
             setState(
                 state.value.copy(
-                    race = race
+                    race = race,
+                    selectDrivers = raceRepositoryImpl.getDriversByRaceId(id)
+                        .map { it.toDriverCircleUI() }
                 )
             )
         }
@@ -87,13 +88,15 @@ class RaceViewModel @Inject constructor(
                         .contains(driverUI.driverId) && !isChange
                 ) {
                     isChange = true
-                    circleUI.copy(drivers = circleUI.drivers + driverUI.copy(
-                        duration = state.value.seconds - state.value.circles.sumOf {
-                            it.drivers.find { it.driverId == driverUI.driverId }?.duration ?: 0
-                        }, useDuration = useDuration
-                    ),
+                    circleUI.copy(
+                        drivers = circleUI.drivers + driverUI.copy(
+                            duration = state.value.seconds - state.value.circles.sumOf {
+                                it.drivers.find { it.driverId == driverUI.driverId }?.duration ?: 0
+                            }, useDuration = useDuration
+                        ),
                         finishPenaltyDrivers = circleUI.finishPenaltyDrivers,
-                        penaltyFor = circleUI.penaltyFor)
+                        penaltyFor = circleUI.penaltyFor
+                    )
                 } else {
                     circleUI
                 }
@@ -131,7 +134,7 @@ class RaceViewModel @Inject constructor(
                         }
                     )
                 )
-            }?: isEmptyCircles()
+            } ?: isEmptyCircles()
         }
 
     }
@@ -152,17 +155,6 @@ class RaceViewModel @Inject constructor(
             setState(
                 state.value.copy(
                     driversAlert = !state.value.driversAlert
-                )
-            )
-        }
-    }
-
-    fun loadPlayers() {
-        viewModelScope.launch {
-            val drivers = raceRepositoryImpl.getDrivers()
-            setState(
-                state.value.copy(
-                    drivers = drivers.map { it.toDriverCircleUI() }
                 )
             )
         }
