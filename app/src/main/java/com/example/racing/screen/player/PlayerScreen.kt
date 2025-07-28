@@ -321,7 +321,7 @@ fun CreateDriverDialog(
                 modifier = Modifier.fillMaxWidth(),
                 value = driverNumber.orEmpty(),
                 onValueChange = onDriverNumberChange,
-                placeholder = {
+                label = {
                     Text(
                         text = "Номер участника",
                         style = MaterialTheme.typography.titleSmall
@@ -336,7 +336,7 @@ fun CreateDriverDialog(
                     .padding(top = 16.dp),
                 value = driverName,
                 onValueChange = onNameChange,
-                placeholder = {
+                label = {
                     Text(
                         text = "Имя участника",
                         style = MaterialTheme.typography.titleSmall
@@ -350,7 +350,7 @@ fun CreateDriverDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp),
-                placeholder = {
+                label = {
                     Text(
                         text = "Фамилия участника",
                         style = MaterialTheme.typography.titleSmall
@@ -364,7 +364,7 @@ fun CreateDriverDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp),
-                placeholder = {
+                label = {
                     Text(
                         text = "Город",
                         style = MaterialTheme.typography.titleSmall
@@ -378,7 +378,7 @@ fun CreateDriverDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp),
-                placeholder = {
+                label = {
                     Text(
                         text = "Модель техники",
                         style = MaterialTheme.typography.titleSmall
@@ -392,7 +392,7 @@ fun CreateDriverDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp),
-                placeholder = {
+                label = {
                     Text(
                         text = "Звание",
                         style = MaterialTheme.typography.titleSmall
@@ -406,7 +406,7 @@ fun CreateDriverDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp),
-                placeholder = {
+                label = {
                     Text(
                         text = "Команда",
                         style = MaterialTheme.typography.titleSmall

@@ -15,7 +15,6 @@ import com.example.racing.domain.models.DriverResult
 import com.example.racing.domain.models.DriverUI
 import com.example.racing.domain.models.RaceDetailUI
 import com.example.racing.domain.models.RaceUI
-import com.example.racing.ext.formatSeconds
 import com.example.racing.ext.formatTimestampToDateTimeString
 import com.example.racing.screen.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -35,25 +34,19 @@ class RaceTableViewModel @Inject constructor(
     BaseViewModel<RaceTableState>(RaceTableState.InitState) {
     // Добавляем состояние для объединенных заездов
     private var mergedRaces = mutableListOf<Long>()
+    // Таблица очков UIM (20 значений)
+    private val pointsSystem = listOf(25, 20, 16, 13, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0, 0, 0)
+
     fun loadRace(id: Long, context: Context) {
         viewModelScope.launch {
+            if (mergedRaces.isEmpty()) mergedRaces.add(id)
             val availableRaces = raceRepositoryImpl.getRaces()
-            if (mergedRaces.isEmpty()) {
-                mergedRaces.add(id)
-            }
-
-            val raceDetails = mergedRaces.map { raceId ->
-                raceRepositoryImpl.getRaceDetail(raceId)
-            }
-
+            val raceDetails = mergedRaces.map { raceRepositoryImpl.getRaceDetail(it) }
             val mergedResult = mergeRaceResults(raceDetails)
 
-            // Генерируем имя файла для объединенного отчета
             val fileName = generateMergedFileName()
             val path = context.getExternalFilesDir(null)
-            val isExist = path?.let {
-                File(it, fileName).exists()
-            } ?: false
+            val isExist = path?.let { File(it, fileName).exists() } ?: false
 
             setState(
                 state.value.copy(
@@ -68,76 +61,154 @@ class RaceTableViewModel @Inject constructor(
             merge()
         }
     }
+
+    // Внутренние классы для расчета результатов
+    private data class DriverStats(
+        val driverId: Long,
+        var nonPenaltyCircles: Int = 0,
+        var penaltyCircles: Int = 0,
+        var totalDuration: Long = 0
+    )
+
+    private data class DriverPlacement(
+        val driver: DriverUI,
+        val place: Int,
+        val laps: Int,
+        val penaltyCount: Int
+    )
+
+    private fun calculateDriverPlacements(raceDetail: RaceDetailUI): List<DriverPlacement> {
+        val driverStatsMap = mutableMapOf<Long, DriverStats>()
+
+        raceDetail.circles.forEach { circle ->
+            circle.drivers.forEach { driver ->
+                if (raceDetail.drivers.any { it.driverId == driver.driverId }) {
+                    val stats = driverStatsMap.getOrPut(driver.driverId) { DriverStats(driver.driverId) }
+                    if (!driver.useDuration) {
+                        stats.penaltyCircles++
+                    } else {
+                        stats.nonPenaltyCircles++
+                        stats.totalDuration += driver.duration
+                    }
+                }
+            }
+        }
+
+        val driversWithStats = driverStatsMap.values.toList()
+        val groupedByNonPenalty = driversWithStats.groupBy { it.nonPenaltyCircles }
+
+        val sortedGroups = groupedByNonPenalty
+            .toSortedMap(compareByDescending { it })
+            .values
+            .flatMap { group -> group.sortedBy { it.totalDuration } }
+
+        val placedDrivers = sortedGroups.mapNotNull { stats ->
+            raceDetail.drivers.find { it.driverId == stats.driverId }?.let { driver ->
+                Pair(driver, stats)
+            }
+        }
+
+        val driversWithoutStats = raceDetail.drivers.filter { driver ->
+            driver.driverId !in driverStatsMap.keys
+        }
+
+        val allDriversWithPlace = placedDrivers + driversWithoutStats.map { driver ->
+            Pair(driver, null)
+        }
+
+        return allDriversWithPlace.mapIndexed { index, (driver, stats) ->
+            if (stats != null) {
+                DriverPlacement(
+                    driver = driver,
+                    place = index + 1,
+                    laps = stats.nonPenaltyCircles + stats.penaltyCircles,
+                    penaltyCount = stats.penaltyCircles
+                )
+            } else {
+                DriverPlacement(
+                    driver = driver,
+                    place = index + 1,
+                    laps = 0,
+                    penaltyCount = 0
+                )
+            }
+        }
+    }
+
+    private fun mergeRaceResults(raceDetails: List<RaceDetailUI>): MergedResult {
+        val allDrivers = raceDetails.flatMap { it.drivers }.distinctBy { it.driverId }
+        val racePlacements = raceDetails.associateWith { calculateDriverPlacements(it) }
+
+        val driverResults = allDrivers.map { driver ->
+            val results = raceDetails.map { raceDetail ->
+                val placements = racePlacements[raceDetail] ?: emptyList()
+                val placement = placements.find { it.driver.driverId == driver.driverId }
+
+                if (placement != null) {
+                    RaceResult(
+                        position = placement.place,
+                        points = if (placement.place in 1..pointsSystem.size) pointsSystem[placement.place - 1] else 0,
+                        laps = placement.laps,
+                        penaltyCount = placement.penaltyCount
+                    )
+                } else {
+                    RaceResult(0, 0, 0, 0) // Гонщик не участвовал
+                }
+            }
+
+            MergedDriverResult(
+                driver = driver,
+                results = results,
+                totalPoints = results.sumOf { it.points }
+            )
+        }
+
+        // Логика сортировки для правильного ПОРЯДКА в таблице
+        val sortedResults = driverResults.sortedWith { a, b ->
+            // 1. Сортируем по сумме очков (по убыванию)
+            val pointsCompare = b.totalPoints.compareTo(a.totalPoints)
+            if (pointsCompare != 0) return@sortedWith pointsCompare
+
+            // 2. Если очки равны, смотрим на результаты заездов, начиная с последнего
+            for (i in a.results.indices.reversed()) {
+                val aPos = a.results.getOrNull(i)?.position ?: Int.MAX_VALUE
+                val bPos = b.results.getOrNull(i)?.position ?: Int.MAX_VALUE
+                val validAPos = if (aPos == 0) Int.MAX_VALUE else aPos
+                val validBPos = if (bPos == 0) Int.MAX_VALUE else bPos
+                val posCompare = validAPos.compareTo(validBPos)
+                if (posCompare != 0) return@sortedWith posCompare
+            }
+            0 // Полностью равны
+        }
+
+        return MergedResult(
+            races = raceDetails.map { it.raceUI },
+            drivers = sortedResults
+        )
+    }
+
     private fun generateMergedFileName(): String {
-        // Сортируем ID заездов по возрастанию для единообразия
         val sortedIds = mergedRaces.sorted()
         val idsString = sortedIds.joinToString("_") { it.toString() }
         return "merged_${idsString}.csv"
     }
 
-    private fun rankDrivers(circles: List<CircleUI>, drivers: List<DriverUI>): List<DriverUI?> {
-        val driverResults = mutableMapOf<Long, DriverResult>()
-
-        // 1. Собираем информацию о каждом водителе
-        circles.forEach { circle ->
-            circle.drivers.forEach { driver ->
-                val result =
-                    driverResults.getOrPut(driver.driverId) { DriverResult(driver.driverId) }
-                result.totalDuration += driver.duration
-                if (!driver.useDuration) {
-                    result.penaltyCircles += 1
-                } else {
-                    result.nonPenaltyCircles += 1
-                }
-            }
-        }
-
-        // 2. Группируем водителей по количеству не штрафных кругов
-        val groupedByNonPenaltyCircles = driverResults.values.groupBy { it.nonPenaltyCircles }
-
-        // 3. Сортируем внутри каждой группы по общему времени
-        val sortedGroups =
-            groupedByNonPenaltyCircles.toSortedMap(compareByDescending { it }).values.flatMap { group ->
-                group.sortedBy { it.totalDuration }
-            }
-
-        // 4. Возвращаем отсортированный список driverId
-        return sortedGroups.map { driver ->
-            drivers.find { it.driverId == driver.driverId }
-        }
-    }
-
     fun createExcelFile(context: Context, doAfter: (Context, File) -> Unit = { _, _ -> }) {
-        // Генерируем уникальное имя файла на основе ID заездов
         val fileName = generateMergedFileName()
         val path = context.getExternalFilesDir(null)
 
         path?.let {
             val directory = File(it.absolutePath)
-
-            if (!directory.exists()) {
-                val directoryCreated = directory.mkdirs()
-                if (!directoryCreated) {
-                    Log.e("CreateExcelFile", "Failed to create directory")
-                    return
-                }
-            }
-
+            if (!directory.exists()) directory.mkdirs()
             val file = File(directory, fileName)
             try {
-                if (file.exists()) {
-                    // Файл уже существует, перезаписываем его
-                    file.delete()
-                }
-
-                val fileCreated = file.createNewFile()
-                if (fileCreated) {
+                if (file.exists()) file.delete()
+                if (file.createNewFile()) {
                     createExcel(file, context, doAfter)
                 } else {
-                    // Не удалось создать файл, но все равно вызываем doAfter
                     doAfter(context, file)
                     setState(state.value.copy(fileExist = true))
-                    Log.e("CreateExcelFile", "File creation failed")
+                    Log.e("CreateExcelFile", "File creation failed, but doAfter called")
                 }
             } catch (e: IOException) {
                 Log.e("CreateExcelFile", "IOException: ${e.message}")
@@ -145,6 +216,133 @@ class RaceTableViewModel @Inject constructor(
         }
     }
 
+    // =================================================================
+    // ============ ИЗМЕНЕННАЯ ФУНКЦИЯ СОЗДАНИЯ EXCEL ====================
+    // =================================================================
+    private fun createExcel(
+        file: File,
+        context: Context,
+        doAfter: (Context, File) -> Unit
+    ) {
+        merge() // Убедимся, что данные и сортировка актуальны
+        val csvBuilder = StringBuilder()
+        val mergedResult = state.value.mergedResults
+        val numRaces = mergedResult.races.size
+        val numDrivers = mergedResult.drivers.size
+
+        // ----- Вспомогательные функции -----
+        fun indexToExcelColumn(index: Int): String {
+            var idx = index
+            var str = ""
+            while (idx >= 0) {
+                str = ('A' + idx % 26) + str
+                idx = idx / 26 - 1
+            }
+            return str
+        }
+
+        fun escapeCsvValue(value: Any): String {
+            val strValue = value.toString()
+            return if (strValue.contains(",") || strValue.contains("\"") || strValue.startsWith("=")) {
+                "\"${strValue.replace("\"", "\"\"")}\""
+            } else {
+                strValue
+            }
+        }
+
+        // ----- 1. Заголовки -----
+        csvBuilder.append("Сводные результаты заездов\n\n")
+
+        val raceTitleHeader = mutableListOf<String>()
+        raceTitleHeader.addAll(List(6) { "" })
+        mergedResult.races.forEach { race ->
+            raceTitleHeader.add(escapeCsvValue("Заезд - ${race.raceTitle}"))
+            raceTitleHeader.addAll(List(3) { "" })
+        }
+        csvBuilder.append(raceTitleHeader.joinToString(",")).append("\n")
+
+        val mainHeader = mutableListOf(
+            "Место", "Фамилия Имя", "Город", "Техника", "Звание", "Ст. номер"
+        )
+        repeat(numRaces) {
+            mainHeader.addAll(listOf("Место в заезде", "Круги", "Штрафы", "Очки"))
+        }
+        mainHeader.add("Сумма очков")
+        csvBuilder.append(mainHeader.joinToString(",") { escapeCsvValue(it) }).append("\n")
+
+        // ----- 2. Вычисление динамических позиций -----
+        val mainTableStartRow = 5
+        val mainTableLastRow = mainTableStartRow + numDrivers - 1
+        val pointsTableStartRow = mainTableLastRow + 3
+
+        // ----- 3. Данные участников -----
+        mergedResult.drivers.forEachIndexed { idx, driverResult ->
+            val currentRow = mainTableStartRow + idx
+            val rowData = mutableListOf<String>()
+
+            // === ВОЗВРАЩАЕМ ФОРМУЛУ RANK.EQ ===
+            val sumPointsColumnIndex = 6 + numRaces * 4
+            val sumPointsColumnLetter = indexToExcelColumn(sumPointsColumnIndex)
+            val rankRange = "\$${sumPointsColumnLetter}\$${mainTableStartRow}:\$${sumPointsColumnLetter}\$${mainTableLastRow}"
+            rowData.add(
+                escapeCsvValue("=RANK.EQ(${sumPointsColumnLetter}${currentRow}, ${rankRange}, 0)")
+            )
+
+            // Данные гонщика
+            val driver = driverResult.driver
+            rowData.add(escapeCsvValue("${driver.lastName} ${driver.name}"))
+            rowData.add(escapeCsvValue(driver.city))
+            rowData.add(escapeCsvValue(driver.boatModel))
+            rowData.add(escapeCsvValue(driver.rank))
+            rowData.add(escapeCsvValue(driver.driverNumber))
+
+            // Данные по заездам
+            val pointsFormulaParts = mutableListOf<String>()
+            for (raceIdx in 0 until numRaces) {
+                val result = driverResult.results[raceIdx]
+                rowData.add(escapeCsvValue(result.position))
+                rowData.add(escapeCsvValue(result.laps))
+                rowData.add(escapeCsvValue(result.penaltyCount))
+
+                val placeColIndex = 6 + raceIdx * 4
+                val placeColLetter = indexToExcelColumn(placeColIndex)
+                val pointsTableRange = "\$X\$${pointsTableStartRow + 1}:\$Y\$${pointsTableStartRow + 20}"
+                rowData.add(
+                    escapeCsvValue("=IF(OR(${placeColLetter}${currentRow}<=0, ${placeColLetter}${currentRow}>20), 0, VLOOKUP(${placeColLetter}${currentRow}, ${pointsTableRange}, 2, FALSE))")
+                )
+
+                val pointsColLetter = indexToExcelColumn(placeColIndex + 3)
+                pointsFormulaParts.add("$pointsColLetter$currentRow")
+            }
+
+            // Формула суммы очков
+            rowData.add(escapeCsvValue("=SUM(${pointsFormulaParts.joinToString(",")})"))
+            csvBuilder.append(rowData.joinToString(",")).append("\n")
+        }
+
+        // ----- 4. Таблица очков (внизу) -----
+        csvBuilder.append("\n\n")
+        val pointsHeaderPadding = List(23) { "" }
+        csvBuilder.append(pointsHeaderPadding.joinToString(","))
+        csvBuilder.append(",").append(escapeCsvValue("Место")).append(",").append(escapeCsvValue("Очки")).append("\n")
+        pointsSystem.forEachIndexed { index, points ->
+            csvBuilder.append(pointsHeaderPadding.joinToString(","))
+            csvBuilder.append(",").append(escapeCsvValue(index + 1)).append(",").append(escapeCsvValue(points)).append("\n")
+        }
+
+        // ----- 5. Запись в файл -----
+        try {
+            OutputStreamWriter(file.outputStream(), StandardCharsets.UTF_16).use { it.write(csvBuilder.toString()) }
+            Toast.makeText(context, "Файл создан", Toast.LENGTH_SHORT).show()
+            setState(state.value.copy(fileExist = true))
+            doAfter(context, file)
+        } catch (e: IOException) {
+            Log.e("CreateExcel", "Ошибка записи в файл: ${e.message}")
+            Toast.makeText(context, "Ошибка создания файла", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Остальной код ViewModel без изменений...
     fun shareFile(context: Context, file: File) {
         viewModelScope.launch {
             val uri: Uri =
@@ -173,75 +371,7 @@ class RaceTableViewModel @Inject constructor(
             }
         }
     }
-
-    private fun createExcel(
-        file: File,
-        context: Context,
-        doAfter: (Context, File) -> Unit = { _, _ -> }
-    ) {
-        merge()
-        val csvBuilder = StringBuilder()
-        val mergedResult = state.value.mergedResults
-
-        // Заголовок
-        csvBuilder.append("Сводные результаты заездов\n")
-        mergedResult.races.forEachIndexed { index, race ->
-            csvBuilder.append("Заезд ${index + 1}: ${race.raceTitle} (${race.createRace.formatTimestampToDateTimeString()})\n")
-        }
-        csvBuilder.append("\n")
-
-        // Основные заголовки
-        csvBuilder.append("МЕСТО,Фамилия Имя,Город,Техника,Звание,Ст. номер")
-
-        // Добавляем объединенные заголовки для каждого заезда
-        mergedResult.races.forEachIndexed { index, race ->
-            // Добавляем название заезда как объединенную ячейку
-            csvBuilder.append(",Заезд $index: \"${race.raceTitle}\"")
-            // Добавляем 3 пустые ячейки для объединения (всего 4 колонки)
-            csvBuilder.append(",,,")
-        }
-        // Заголовок для суммы очков
-        csvBuilder.append(",Сумма очков\n")
-
-        // Подзаголовки для каждой группы
-        // Основные заголовки (пустые)
-        csvBuilder.append(",,,,,")
-        mergedResult.races.forEach { _ ->
-            // Подзаголовки для каждой группы столбцов
-            csvBuilder.append(",Место,Круги,Штрафы,Очки")
-        }
-        csvBuilder.append(",Сумма очков\n")
-
-        // Данные
-        mergedResult.drivers.forEachIndexed { position, driverResult ->
-            val driver = driverResult.driver
-            csvBuilder.append("${position + 1},${driver.lastName} ${driver.name},${driver.city},${driver.boatModel},${driver.rank},${driver.driverNumber}")
-
-            driverResult.results.forEach { result ->
-                csvBuilder.append(",${result.position},${result.laps},${result.penaltyCount},${result.points}")
-            }
-
-            // Заполняем пустые колонки, если заездов меньше, чем объявлено
-            for (i in driverResult.results.size until mergedResult.races.size) {
-                csvBuilder.append(",,,,")
-            }
-
-            csvBuilder.append(",${driverResult.totalPoints}\n")
-        }
-
-        // Write to file
-        OutputStreamWriter(file.outputStream(), StandardCharsets.UTF_16).use { writer ->
-            writer.write(csvBuilder.toString())
-        }
-
-        val toast = Toast.makeText(context, "Файл создан", Toast.LENGTH_SHORT)
-        toast.show()
-        setState(state.value.copy(fileExist = true))
-        doAfter(context, file)
-    }
-
     fun openFile(context: Context, file: File) {
-        // Open the file
         val uri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             FileProvider.getUriForFile(
                 context,
@@ -273,7 +403,6 @@ class RaceTableViewModel @Inject constructor(
         return "/${raceTitles}_$raceDates.csv"
     }
 
-    // Функция для добавления заезда к объединенным
     fun addRaceToMerge(raceId: Long) {
         if (!mergedRaces.contains(raceId)) {
             mergedRaces.add(raceId)
@@ -281,7 +410,6 @@ class RaceTableViewModel @Inject constructor(
         }
     }
 
-    // Функция для удаления заезда из объединенных
     fun removeRaceFromMerge(raceId: Long) {
         mergedRaces.remove(raceId)
         merge()
@@ -299,53 +427,9 @@ class RaceTableViewModel @Inject constructor(
         }
     }
 
-    // Функция для расчета объединенных результатов
-    private fun mergeRaceResults(raceDetails: List<RaceDetailUI>): MergedResult {
-        val allDrivers = raceDetails.flatMap { it.drivers }.distinctBy { it.driverId }
-        val pointsSystem = listOf(25, 20, 16, 13, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1)
-
-        val driverResults = allDrivers.map { driver ->
-            val results = raceDetails.map { raceDetail ->
-                val driverInRace = raceDetail.drivers.find { it.driverId == driver.driverId }
-                val position = raceDetail.drivers.indexOfFirst { it.driverId == driver.driverId } + 1
-                val points = if (position <= pointsSystem.size) pointsSystem[position - 1] else 0
-
-                RaceResult(
-                    position = position,
-                    points = points,
-                    laps = raceDetail.circles.count { circle ->
-                        circle.drivers.any { it.driverId == driver.driverId }
-                    },
-                    penaltyCount = raceDetail.circles.sumOf { circle ->
-                        circle.drivers.count {
-                            it.driverId == driver.driverId && !it.useDuration
-                        }
-                    }
-                )
-            }
-
-            MergedDriverResult(
-                driver = driver,
-                results = results,
-                totalPoints = results.sumOf { it.points }
-            )
-        }
-
-        // Сортируем по сумме очков (при равных - по лучшему результату во втором заезде)
-        val sortedResults = driverResults.sortedWith(compareByDescending<MergedDriverResult> { it.totalPoints }
-            .thenByDescending { it.results.getOrNull(1)?.points ?: 0 }
-            .thenByDescending { it.results.getOrNull(0)?.points ?: 0 })
-
-        return MergedResult(
-            races = raceDetails.map { it.raceUI },
-            drivers = sortedResults
-        )
-    }
-
     fun toggleRaceSelection(show: Boolean) {
         viewModelScope.launch {
             if (show) {
-                // Загружаем доступные заезды
                 val availableRaces = raceRepositoryImpl.getFinishedRacesExcept(mergedRaces)
                 setState(state.value.copy(
                     showRaceSelection = true,
@@ -362,8 +446,8 @@ class RaceTableViewModel @Inject constructor(
             it.finish && it.raceId !in excludeIds
         }
     }
-
 }
+
 
 data class MergedResult(
     val races: List<RaceUI>,

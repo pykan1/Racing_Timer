@@ -130,6 +130,7 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                     )
                 }
             }
+            Spacer(Modifier.size(10.dp))
 
             // Чипы выбранных заездов
             LazyRow(
@@ -376,7 +377,8 @@ fun RowScope.TableHeaderCell(text: String, weight: Float) {
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.Bold,
         textAlign = TextAlign.Center,
-        modifier = Modifier.weight(weight)
+        modifier = Modifier.weight(weight),
+        maxLines = 1
     )
 }
 
@@ -397,7 +399,6 @@ fun ResultsTableRow(position: Int, driverResult: MergedDriverResult, raceCount: 
         TableCell(driver.boatModel, 0.12f)
         TableCell(driver.rank, 0.1f)
         TableCell(driver.driverNumber.toString(), 0.05f)
-
         // Данные по заездам
         for (i in 0 until driverResult.results.size) {
             val result = driverResult.results.getOrNull(i)
@@ -428,7 +429,8 @@ fun RowScope.TableCell(text: String, weight: Float) {
         text = text,
         style = MaterialTheme.typography.bodyMedium,
         textAlign = TextAlign.Center,
-        modifier = Modifier.weight(weight)
+        modifier = Modifier.weight(weight),
+        maxLines = 1
     )
 }
 
