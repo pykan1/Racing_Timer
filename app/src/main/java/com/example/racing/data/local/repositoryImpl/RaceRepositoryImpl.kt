@@ -108,7 +108,26 @@ class RaceRepositoryImpl @Inject constructor(
             DriverModel(
                 name = driverUI.name,
                 lastName = driverUI.lastName,
-                driverNumber = driverUI.driverNumber
+                driverNumber = driverUI.driverNumber,
+                city = driverUI.city,
+                boatModel = driverUI.boatModel,
+                rank = driverUI.rank,
+                team = driverUI.team,
+            )
+        )
+    }
+
+    suspend fun updateDriver(driverUI: DriverUI) {
+        driverRepository.updateDriver(
+            DriverModel(
+                driverId = driverUI.driverId,
+                name = driverUI.name,
+                lastName = driverUI.lastName,
+                driverNumber = driverUI.driverNumber,
+                city = driverUI.city,
+                boatModel = driverUI.boatModel,
+                rank = driverUI.rank,
+                team = driverUI.team,
             )
         )
     }
@@ -119,7 +138,11 @@ class RaceRepositoryImpl @Inject constructor(
                 driverId = driverUI.driverId,
                 name = driverUI.name,
                 lastName = driverUI.lastName,
-                driverNumber = driverUI.driverNumber
+                driverNumber = driverUI.driverNumber,
+                city = driverUI.city,
+                boatModel = driverUI.boatModel,
+                rank = driverUI.rank,
+                team = driverUI.team,
             )
         )
     }

@@ -5,7 +5,9 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
+import com.example.racing.data.models.RaceDriverCrossRefModel
 import com.example.racing.data.models.RaceModel
 import com.example.racing.data.models.RaceWithDriversModel
 
@@ -28,5 +30,15 @@ interface RaceRepository {
 
     @Delete
     suspend fun deleteRace(raceModel: RaceModel)
+
+    @Transaction
+    @Query("SELECT * FROM race WHERE raceId = :raceId")
+    suspend fun getFullRaceForCopy(raceId: Long): RaceWithDriversModel
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRaceWithCrossRefs(
+        race: RaceModel,
+        crossRefs: List<RaceDriverCrossRefModel>
+    )
 
 }

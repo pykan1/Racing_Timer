@@ -10,4 +10,9 @@ data class DriverModel(
     val driverNumber: Long,
     val name: String,
     val lastName: String,
+    // Новые поля
+    val city: String ,
+    val boatModel: String ,
+    val rank: String ,
+    val team: String
 )

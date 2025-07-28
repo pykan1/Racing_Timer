@@ -33,6 +33,40 @@ class RacingViewModel @Inject constructor(private val raceRepositoryImpl: RaceRe
         }
     }
 
+    fun copyRace(race: RaceUI) {
+        viewModelScope.launch {
+            // Генерация нового имени с нумерацией копий
+            val newTitle = generateCopyName(race.raceTitle, state.value.races)
+            val drivers = raceRepositoryImpl.getRaceDetail(race.raceId).drivers
+            // Создание копии заезда
+            raceRepositoryImpl.insertRace(
+                title = newTitle,
+                drivers = drivers.map { it.driverId }
+            )
+
+            // Обновление списка
+            loadData()
+        }
+    }
+
+    private fun generateCopyName(originalName: String, existingRaces: List<RaceUI>): String {
+        val baseName = if (originalName.isBlank()) "Заезд" else originalName
+
+        // Поиск максимального номера копии для этого имени
+        val copyPattern = Regex("""$baseName \((\d+)\)$""")
+        val maxCopyNumber = existingRaces
+            .mapNotNull { it.raceTitle }
+            .mapNotNull { copyPattern.find(it)?.groupValues?.get(1)?.toIntOrNull() }
+            .maxOrNull() ?: 0
+
+        // Если есть копии, увеличиваем номер, иначе создаем первую копию
+        return if (maxCopyNumber > 0) {
+            "$baseName (${maxCopyNumber + 1})"
+        } else {
+            "$baseName (1)"
+        }
+    }
+
     fun changeRaceTitle(it: String) {
         runBlocking {
             setState(state.value.copy(raceTitle = it))
@@ -41,7 +75,7 @@ class RacingViewModel @Inject constructor(private val raceRepositoryImpl: RaceRe
 
     private fun getPlayers() {
         viewModelScope.launch {
-            val drivers = raceRepositoryImpl.getDrivers()
+            val drivers = raceRepositoryImpl.getDrivers().sortedBy { it.driverNumber }
             setState(
                 state.value.copy(
                     players = drivers
@@ -55,8 +89,8 @@ class RacingViewModel @Inject constructor(private val raceRepositoryImpl: RaceRe
     fun changeSearchPlayers(it: String) {
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            delay(400)
-            val drivers = raceRepositoryImpl.searchDrivers(query = it)
+            delay(300)
+            val drivers = raceRepositoryImpl.searchDrivers(query = it).sortedBy { it.driverNumber }
             setState(state.value.copy(players = drivers))
         }
         runBlocking {

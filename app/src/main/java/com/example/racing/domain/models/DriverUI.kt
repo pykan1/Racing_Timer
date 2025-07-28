@@ -4,7 +4,11 @@ data class DriverUI(
     val driverId: Long = 0,
     val driverNumber: Long,
     val name: String,
-    val lastName: String
+    val lastName: String,
+    val city: String,
+    val boatModel: String,
+    val rank: String,
+    val team: String
 )
 
 data class DriverCircleUI(
@@ -12,6 +16,10 @@ data class DriverCircleUI(
     val driverNumber: Long,
     val name: String,
     val lastName: String,
+    val city: String,
+    val boatModel: String,
+    val rank: String,
+    val team: String,
     val duration: Long,
     val useDuration: Boolean
 )

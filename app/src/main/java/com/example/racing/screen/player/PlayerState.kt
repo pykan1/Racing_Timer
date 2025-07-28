@@ -9,10 +9,15 @@ data class PlayerState(
     val driverLastName: String,
     val alertDialog: Boolean,
     val driverNumber: Long?,
+    val city: String,
+    val boatModel: String,
+    val rank: String,
+    val team: String,
+    val selectEditDriver: DriverUI?
 ): UiState {
     companion object {
         val InitState = PlayerState(
-            emptyList(), "", "", false, null
+            emptyList(), "", "", false, null, "", "", "", "", null
         )
     }
 }

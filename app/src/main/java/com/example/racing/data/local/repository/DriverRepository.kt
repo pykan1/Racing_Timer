@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.example.racing.data.models.DriverModel
 import com.example.racing.data.models.RaceDriverCrossRefModel
 
@@ -12,6 +13,9 @@ import com.example.racing.data.models.RaceDriverCrossRefModel
 interface DriverRepository {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDriver(driver: DriverModel): Long
+
+    @Update(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun updateDriver(driver: DriverModel)
 
     @Query("SELECT * FROM driver WHERE driverId = :id")
     suspend fun getDriverById(id: Long): DriverModel

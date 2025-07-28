@@ -46,7 +46,7 @@ fun RaceModel.toUI(): RaceUI {
 
 fun DriverModel.toUI(): DriverUI {
     return DriverUI(
-        driverId, driverNumber, name, lastName
+        driverId, driverNumber, name, lastName, city, boatModel, rank, team
     )
 }
 
@@ -71,7 +71,11 @@ fun CircleDriverCrossRef.toUI(drivers: List<DriverModel>): DriverCircleUI {
         name = driver?.name.orEmpty(),
         lastName = driver?.lastName.orEmpty(),
         duration = duration,
-        useDuration = useDuration
+        useDuration = useDuration,
+        city = driver?.city.orEmpty(),
+        boatModel = driver?.boatModel.orEmpty(),
+        rank = driver?.rank.orEmpty(),
+        team = driver?.team.orEmpty(),
     )
 }
 
@@ -83,6 +87,10 @@ fun DriverUI.toDriverCircleUI(duration: Long = 0, useDuration: Boolean = true): 
         name = name,
         lastName = lastName,
         duration = duration,
-        useDuration = useDuration
+        useDuration = useDuration,
+        city = city.orEmpty(),
+        boatModel = boatModel.orEmpty(),
+        rank = rank.orEmpty(),
+        team = team.orEmpty(),
     )
 }

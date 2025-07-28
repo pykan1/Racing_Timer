@@ -20,9 +20,55 @@ class PlayerViewModel @Inject constructor(private val raceRepositoryImpl: RaceRe
     private fun loadDrivers() {
         viewModelScope.launch {
             val drivers = raceRepositoryImpl.getDrivers()
-            setState(state.value.copy(drivers = drivers))
+            setState(state.value.copy(drivers = drivers.sortedBy { it.driverNumber }))
         }
     }
+
+    // Модифицируем selectEditDriver
+    fun selectEditDriver(driverUI: DriverUI?) {
+        viewModelScope.launch {
+            if (driverUI == null) {
+                setState(state.value.copy(selectEditDriver = null))
+            } else {
+                setState(
+                    state.value.copy(
+                        selectEditDriver = driverUI,
+                        driverNumber = driverUI.driverNumber,
+                        driverName = driverUI.name,
+                        driverLastName = driverUI.lastName,
+                        city = driverUI.city,
+                        boatModel = driverUI.boatModel,
+                        rank = driverUI.rank,
+                        team = driverUI.team
+                    )
+                )
+            }
+        }
+    }
+
+
+    fun updatePlayer() {
+        viewModelScope.launch {
+            raceRepositoryImpl.updateDriver(
+                DriverUI(
+                    driverId = state.value.selectEditDriver?.driverId?: 0,
+                    name = state.value.driverName,
+                    lastName = state.value.driverLastName,
+                    driverNumber = state.value.driverNumber ?: 0,
+                    city = state.value.city,
+                    boatModel = state.value.boatModel,
+                    rank = state.value.rank,
+                    team = state.value.team,
+                )
+            )
+            changeAlert()
+            selectEditDriver(null)
+            clearAlert()
+            loadDrivers()
+        }
+    }
+
+
 
     fun changeAlert() {
         viewModelScope.launch {
@@ -60,13 +106,17 @@ class PlayerViewModel @Inject constructor(private val raceRepositoryImpl: RaceRe
         }
     }
 
-    private fun clearAlert() {
+    fun clearAlert() {
         viewModelScope.launch {
             setState(
                 state.value.copy(
                     driverName = "",
                     driverLastName = "",
                     alertDialog = false,
+                    city = "",
+                    boatModel = "",
+                    rank = "",
+                    team = "",
                     driverNumber = null
                 )
             )
@@ -86,11 +136,55 @@ class PlayerViewModel @Inject constructor(private val raceRepositoryImpl: RaceRe
                 DriverUI(
                     name = state.value.driverName,
                     lastName = state.value.driverLastName,
-                    driverNumber = state.value.driverNumber?: 0
+                    driverNumber = state.value.driverNumber ?: 0,
+                    city = state.value.city,
+                    boatModel = state.value.boatModel,
+                    rank = state.value.rank,
+                    team = state.value.team,
                 )
             )
             clearAlert()
             loadDrivers()
+        }
+    }
+
+    fun changeCity(string: String) {
+        viewModelScope.launch {
+            setState(
+                state.value.copy(
+                    city = string
+                )
+            )
+        }
+    }
+
+    fun changeBoatModel(string: String) {
+        viewModelScope.launch {
+            setState(
+                state.value.copy(
+                    boatModel = string
+                )
+            )
+        }
+    }
+
+    fun changeRank(string: String) {
+        viewModelScope.launch {
+            setState(
+                state.value.copy(
+                    rank = string
+                )
+            )
+        }
+    }
+
+    fun changeTeam(string: String) {
+        viewModelScope.launch {
+            setState(
+                state.value.copy(
+                    team = string
+                )
+            )
         }
     }
 
