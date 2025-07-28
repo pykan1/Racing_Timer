@@ -12,22 +12,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Divider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -45,7 +39,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import com.example.racing.ext.formatSeconds
+import com.example.racing.domain.models.RaceUI
 import com.example.racing.ext.formatTimestampToDateTimeString
 import com.example.racing.screen.home.RacingScreen
 
@@ -56,6 +50,32 @@ class RaceTableScreen(private val raceId: Long) : Screen {
         val state by viewModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
+
+        // Инициализация
+        LaunchedEffect(viewModel) {
+            viewModel.loadRace(raceId, context)
+        }
+
+        // Диалог выбора заездов
+        if (state.showRaceSelection) {
+            RaceSelectionDialog(
+                races = state.availableRaces,
+                selectedRaces = state.mergedResults.races.map { it.raceId },
+                onDismiss = { viewModel.toggleRaceSelection(false) },
+                onRaceSelected = { raceId, selected ->
+                    if (selected) {
+                        viewModel.addRaceToMerge(raceId)
+                    } else {
+                        viewModel.removeRaceFromMerge(raceId)
+                    }
+                },
+                onConfirm = {
+                    viewModel.toggleRaceSelection(false)
+                    viewModel.loadRace(raceId, context) // Перезагружаем данные
+                }
+            )
+        }
+
         val filesPermissionOpenFile =
             rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestMultiplePermissions()) { isGranted ->
                 if (isGranted.all { it.value }) {
@@ -89,182 +109,66 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Text(
-                text = "Результаты заезда от ${state.raceDetailUI.raceUI.createRace.formatTimestampToDateTimeString()}",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(top = 10.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Text(
-                text = state.raceDetailUI.raceUI.raceTitle,
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(top = 15.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = "Места",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 25.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            // Заголовок с кнопкой добавления заезда
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 15.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                TableCell(
-                    modifier = Modifier.weight(0.15f),
-                    title = Pair("Место", false),
-                    data = (1..state.raceDetailUI.drivers.size).map {
-                        Pair(
-                            it.toString(),
-                            false
-                        )
-                    }
-                        .toList(),
+                Text(
+                    text = "Сводные результаты",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(top = 10.dp)
                 )
-                TableCell(
-                    modifier = Modifier.weight(0.30f),
-                    title = Pair("Участник", false),
-                    data = state.raceDetailUI.drivers.map {
-                        Pair(
-                            "${it.driverNumber} ${it.name} ${it.lastName}",
-                            false
-                        )
-                    },
-                )
-                TableCell(
-                    modifier = Modifier.weight(0.35f),
-                    title = Pair("Время", false),
-                    data = state.raceDetailUI.drivers.map { driver ->
-                        val time = state.raceDetailUI.circles.sumOf { circle ->
-                            circle.drivers.sumOf {
-                                if (it.driverId == driver.driverId) it.duration else 0
-                            }
-                        }.formatSeconds()
-                        Pair(time, false)
-                    },
-                )
-                TableCell(
-                    modifier = Modifier.weight(0.20f),
-                    title = Pair("Всего кругов", false),
-                    data = state.raceDetailUI.drivers.map { driver ->
-                        Pair(state.raceDetailUI.circles.count { circle ->
-                            driver.driverId in circle.drivers.map { it.driverId }
-                        }.toString(), false)
-                    },
-                )
-            }
-            Text(
-                text = "По времени круга",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 20.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 15.dp)
-            ) {
-                TableCell(
-                    modifier = Modifier.width(70.dp),
-                    title = Pair("Участник", false),
-                    data = state.raceDetailUI.drivers.map {
-                        Pair(
-                            it.driverNumber.toString(),
-                            false
-                        )
-                    },
-                )
-                state.raceDetailUI.circles.forEachIndexed { index, item ->
-                    println(item)
-                    TableCell(
-                        modifier = Modifier.weight(1f),
-                        title = Pair(
-                            "Круг ${index + 1}",
-                            false
-                        ),
-                        data = state.raceDetailUI.drivers.map { driver ->
-                            item.drivers.find {
-                                it.driverId == driver.driverId
-                            }.let { driverCircle ->
-                                Pair(
-                                    driverCircle?.duration?.formatSeconds()
-                                        .let {
-                                            if (driverCircle?.useDuration == false && (driverCircle?.driverId
-                                                    ?: 0) in item.drivers.map { it.driverId }
-                                            ) "${it.orEmpty()}(Штраф)" else it.orEmpty()
-                                        },
-                                    false
-                                )
-                            }
-                        },
 
-                        )
+                IconButton(
+                    onClick = { viewModel.toggleRaceSelection(true) }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Добавить заезд"
+                    )
                 }
             }
 
-            Text(
-                text = "По кругам",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 20.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 15.dp)
+            // Чипы выбранных заездов
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                TableCell(
-                    modifier = Modifier.width(70.dp),
-                    title = Pair("Круг", false),
-                    data = state.raceDetailUI.circles.mapIndexed { index, circleUI ->
-                        Pair(
-                            "Круг ${(index + 1)}",
-                            false
-                        )
-                    },
-                )
-
-                TableCell(
-                    modifier = Modifier.weight(1f),
-                    title = Pair("Участники", false),
-                    data = state.raceDetailUI.circles.map { item ->
-                        Pair(
-                            item.drivers.map { it.driverNumber.toString() }
-                                .joinToString(", "),
-                            false
-                        )
-                    },
-                )
+                items(state.mergedResults.races) { race ->
+                    RaceChip(
+                        race = race,
+                        onClose = {
+                            if(state.mergedResults.races.size != 1) {
+                                viewModel.removeRaceFromMerge(race.raceId)
+                                viewModel.loadRace(raceId, context)
+                            }
+                        }
+                    )
+                }
             }
 
-            Text(
-                text = "Время заезда - ${state.raceDetailUI.raceUI.duration.formatSeconds()}",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 20.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            // Таблица результатов
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp)
+            ) {
+                // Заголовок таблицы
+                ResultsTableHeader(state)
 
-            Text(
-                text = "Порядок прохождения финишной линии - ${
-                    state.raceDetailUI.raceUI.stackFinish.joinToString(
-                        separator = ", "
+                // Данные таблицы
+                state.mergedResults.drivers.forEachIndexed { position, driverResult ->
+                    ResultsTableRow(
+                        position = position + 1,
+                        driverResult = driverResult,
+                        raceCount = state.mergedResults.races.size
                     )
-                }",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 20.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+                }
+                Divider(modifier = Modifier.fillMaxWidth().height(1.dp))
+
+            }
             Button(
                 onClick = {
 
@@ -297,7 +201,7 @@ class RaceTableScreen(private val raceId: Long) : Screen {
 
             Button(
                 onClick = {
-
+                    // Всегда создаем новый файл, независимо от существования
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         val readPermission = Environment.isExternalStorageManager()
                         if (readPermission) {
@@ -315,7 +219,6 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                             )
                         )
                     }
-
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -323,7 +226,7 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                     .height(50.dp)
             ) {
                 Text(
-                    text = if (state.fileExist) "Открыть" else "Скачать файл",
+                    text = "Скачать файл", // Всегда показываем "Скачать файл"
                     style = MaterialTheme.typography.titleMedium
                 )
             }
@@ -391,6 +294,187 @@ class RaceTableScreen(private val raceId: Long) : Screen {
         }
 
     }
+}
+
+// Компонент чипа заезда
+@Composable
+fun RaceChip(race: RaceUI, onClose: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer,
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            Text(
+                text = race.raceTitle.ifBlank { "Заезд" },
+                style = MaterialTheme.typography.labelMedium
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier.size(20.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Удалить",
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+    }
+}
+
+// Заголовок таблицы
+@Composable
+fun ResultsTableHeader(state: RaceTableState) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant).height(45.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TableHeaderCell("МЕСТО", 0.08f)
+        TableHeaderCell("Фамилия Имя", 0.17f)
+        TableHeaderCell("Город", 0.12f)
+        TableHeaderCell("Техника", 0.12f)
+        TableHeaderCell("Звание", 0.1f)
+        TableHeaderCell("№", 0.05f)
+
+        // Колонки для каждого заезда
+        state.mergedResults.races.forEachIndexed { index, item ->
+            Divider(modifier = Modifier.fillMaxHeight().width(1.dp))
+            Column(
+                modifier = Modifier.weight(0.18f),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(item.raceTitle, style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.size(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceAround
+                ) {
+                    Text("Место", style = MaterialTheme.typography.labelSmall)
+                    Text("Круги", style = MaterialTheme.typography.labelSmall)
+                    Text("Штраф", style = MaterialTheme.typography.labelSmall)
+                    Text("Очки", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        Divider(modifier = Modifier.fillMaxHeight().width(1.dp))
+
+        TableHeaderCell("Сумма", 0.1f)
+    }
+}
+
+@Composable
+fun RowScope.TableHeaderCell(text: String, weight: Float) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.weight(weight)
+    )
+}
+
+// Строка таблицы
+@Composable
+fun ResultsTableRow(position: Int, driverResult: MergedDriverResult, raceCount: Int) {
+    val driver = driverResult.driver
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(45.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TableCell(position.toString(), 0.08f)
+        TableCell("${driver.lastName} ${driver.name}", 0.17f)
+        TableCell(driver.city, 0.12f)
+        TableCell(driver.boatModel, 0.12f)
+        TableCell(driver.rank, 0.1f)
+        TableCell(driver.driverNumber.toString(), 0.05f)
+
+        // Данные по заездам
+        for (i in 0 until driverResult.results.size) {
+            val result = driverResult.results.getOrNull(i)
+            Divider(modifier = Modifier.fillMaxHeight().width(1.dp))
+            if (result != null) {
+                Row(
+                    modifier = Modifier.weight(0.18f),
+                    horizontalArrangement = Arrangement.SpaceAround
+                ) {
+                    TableCell(result.position.toString(), 0.25f)
+                    TableCell(result.laps.toString(), 0.25f)
+                    TableCell(result.penaltyCount.toString(), 0.25f)
+                    TableCell(result.points.toString(), 0.25f)
+                }
+            } else {
+                Spacer(modifier = Modifier.weight(0.13f))
+            }
+        }
+        Divider(modifier = Modifier.fillMaxHeight().width(1.dp))
+
+        TableCell(driverResult.totalPoints.toString(), 0.1f)
+    }
+}
+
+@Composable
+fun RowScope.TableCell(text: String, weight: Float) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.weight(weight)
+    )
+}
+
+// Диалог выбора заездов
+@Composable
+fun RaceSelectionDialog(
+    races: List<RaceUI>,
+    selectedRaces: List<Long>,
+    onDismiss: () -> Unit,
+    onRaceSelected: (Long, Boolean) -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Выберите заезды для объединения") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                races.forEach { race ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = race.raceId in selectedRaces,
+                            onCheckedChange = { selected ->
+                                onRaceSelected(race.raceId, selected)
+                            }
+                        )
+                        Text(
+                            text = race.raceTitle.ifBlank {
+                                "Заезд от ${race.createRace.formatTimestampToDateTimeString()}"
+                            },
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onConfirm) {
+                Text("Применить")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        }
+    )
 }
 
 internal fun Context.openPage(
