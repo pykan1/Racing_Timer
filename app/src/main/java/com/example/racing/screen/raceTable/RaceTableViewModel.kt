@@ -203,7 +203,7 @@ class RaceTableViewModel @Inject constructor(
         // Меняем расширение на .xlsx
         val firstRace = mergedRaces.firstOrNull()?.let { raceRepositoryImpl.getRaceDetail(it) }
         val title = firstRace?.raceUI?.raceTitle?.replace(Regex("[/\\\\?%*:|\"<>]"), "_") ?: "Race"
-        val dateFormat = SimpleDateFormat("dd:MM:yyyy_HH:mm", Locale.getDefault())
+        val dateFormat = SimpleDateFormat("dd:MM:yyyy_HH:mm:ss", Locale.getDefault())
         return "${title}_финал_${dateFormat.format(Date())}.xlsx"
     }
 
