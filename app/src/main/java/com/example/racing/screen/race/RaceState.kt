@@ -19,6 +19,7 @@ data class RaceState(
     val driversIdStack: List<Long>,
     val saveRace: Boolean,
     val settings: SettingsUI,
+    val showResetConfirmation: Boolean = false
 ) : UiState {
     companion object {
         val InitState = RaceState(

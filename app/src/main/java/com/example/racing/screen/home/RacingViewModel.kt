@@ -50,21 +50,14 @@ class RacingViewModel @Inject constructor(private val raceRepositoryImpl: RaceRe
     }
 
     private fun generateCopyName(originalName: String, existingRaces: List<RaceUI>): String {
-        val baseName = if (originalName.isBlank()) "Заезд" else originalName
-
-        // Поиск максимального номера копии для этого имени
-        val copyPattern = Regex("""$baseName \((\d+)\)$""")
-        val maxCopyNumber = existingRaces
-            .mapNotNull { it.raceTitle }
-            .mapNotNull { copyPattern.find(it)?.groupValues?.get(1)?.toIntOrNull() }
-            .maxOrNull() ?: 0
-
-        // Если есть копии, увеличиваем номер, иначе создаем первую копию
-        return if (maxCopyNumber > 0) {
-            "$baseName (${maxCopyNumber + 1})"
-        } else {
-            "$baseName (1)"
+        val baseName = originalName.ifBlank { "Заезд" }
+        var copyIndex = 2
+        var newName = "$baseName заезд $copyIndex"
+        while (existingRaces.any { it.raceTitle == newName }) {
+            copyIndex++
+            newName = "$baseName - заезд $copyIndex"
         }
+        return newName
     }
 
     fun changeRaceTitle(it: String) {

@@ -18,11 +18,22 @@ import com.example.racing.domain.models.RaceUI
 import com.example.racing.ext.formatTimestampToDateTimeString
 import com.example.racing.screen.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.apache.poi.ss.usermodel.Workbook
+import org.apache.poi.ss.util.CellRangeAddress
+import org.apache.poi.ss.util.CellReference
+import org.apache.poi.ss.util.WorkbookUtil
+import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.io.OutputStreamWriter
 import java.nio.charset.StandardCharsets
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 
 
@@ -187,178 +198,268 @@ class RaceTableViewModel @Inject constructor(
         )
     }
 
-    private fun generateMergedFileName(): String {
-        val sortedIds = mergedRaces.sorted()
-        val idsString = sortedIds.joinToString("_") { it.toString() }
-        return "merged_${idsString}.csv"
+    private suspend fun generateMergedFileName(): String {
+        // Меняем расширение на .xlsx
+        val firstRace = mergedRaces.firstOrNull()?.let { raceRepositoryImpl.getRaceDetail(it) }
+        val title = firstRace?.raceUI?.raceTitle?.replace(Regex("[/\\\\?%*:|\"<>]"), "_") ?: "Race"
+        return "${title}_финал.xlsx"
     }
 
     fun createExcelFile(context: Context, doAfter: (Context, File) -> Unit = { _, _ -> }) {
-        val fileName = generateMergedFileName()
-        val path = context.getExternalFilesDir(null)
+        viewModelScope.launch(Dispatchers.IO) { // Используем Dispatchers.IO для работы с файлами
+            val fileName = generateMergedFileName()
+            val path = context.getExternalFilesDir(null)
 
-        path?.let {
-            val directory = File(it.absolutePath)
-            if (!directory.exists()) directory.mkdirs()
-            val file = File(directory, fileName)
-            try {
-                if (file.exists()) file.delete()
-                if (file.createNewFile()) {
-                    createExcel(file, context, doAfter)
-                } else {
-                    doAfter(context, file)
-                    setState(state.value.copy(fileExist = true))
-                    Log.e("CreateExcelFile", "File creation failed, but doAfter called")
+            path?.let {
+                val directory = File(it.absolutePath)
+                if (!directory.exists()) directory.mkdirs()
+                val file = File(directory, fileName)
+                try {
+                    if (file.exists()) file.delete()
+                    if (file.createNewFile()) {
+                        createExcel(file, context, doAfter)
+                    }
+                } catch (e: IOException) {
+                    Log.e("CreateExcelFile", "IOException: ${e.message}")
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Ошибка создания файла", Toast.LENGTH_SHORT).show()
+                    }
                 }
-            } catch (e: IOException) {
-                Log.e("CreateExcelFile", "IOException: ${e.message}")
             }
         }
     }
 
     // =================================================================
-    // ============ ИЗМЕНЕННАЯ ФУНКЦИЯ СОЗДАНИЯ EXCEL ====================
+    // ============ НОВАЯ ФУНКЦИЯ СОЗДАНИЯ EXCEL (XLSX) =================
     // =================================================================
-    private fun createExcel(
+    private suspend fun createExcel(
         file: File,
         context: Context,
         doAfter: (Context, File) -> Unit
     ) {
-        merge() // Убедимся, что данные и сортировка актуальны
-        val csvBuilder = StringBuilder()
+        // Убедимся, что данные и сортировка актуальны
+        merge()
         val mergedResult = state.value.mergedResults
+        // Получаем полные данные для генерации детальных листов
+        val raceDetails = mergedRaces.map { raceRepositoryImpl.getRaceDetail(it) }
+
+        // Создаем книгу Excel
+        val workbook: Workbook = XSSFWorkbook()
+
+        // --- ЛИСТ 1: СВОДНЫЕ РЕЗУЛЬТАТЫ (Ваша текущая логика) ---
+        createSummarySheet(workbook, mergedResult)
+
+        // --- ЛИСТ 2, 3, ...: ДЕТАЛЬНЫЕ РЕЗУЛЬТАТЫ ПО КАЖДОМУ ЗАЕЗДУ ---
+        raceDetails.forEach { raceDetail ->
+            createDetailedRaceSheet(workbook, raceDetail)
+        }
+
+        // --- ЗАПИСЬ В ФАЙЛ ---
+        try {
+            FileOutputStream(file).use { outputStream ->
+                workbook.write(outputStream)
+            }
+            workbook.close()
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Файл создан", Toast.LENGTH_SHORT).show()
+                setState(state.value.copy(fileExist = true))
+                doAfter(context, file)
+            }
+        } catch (e: IOException) {
+            Log.e("CreateExcel", "Ошибка записи в файл: ${e.message}")
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Ошибка записи файла", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun createSummarySheet(workbook: Workbook, mergedResult: MergedResult) {
+        val sheet = workbook.createSheet("Сводные результаты")
         val numRaces = mergedResult.races.size
         val numDrivers = mergedResult.drivers.size
+        var rowIndex = 0
 
-        // ----- Вспомогательные функции -----
-        fun indexToExcelColumn(index: Int): String {
-            var idx = index
-            var str = ""
-            while (idx >= 0) {
-                str = ('A' + idx % 26) + str
-                idx = idx / 26 - 1
-            }
-            return str
-        }
+        // Заголовок
+        sheet.createRow(rowIndex++).createCell(0).setCellValue("Сводные результаты заездов")
+        rowIndex++ // Пустая строка
 
-        fun escapeCsvValue(value: Any): String {
-            val strValue = value.toString()
-            return if (strValue.contains(",") || strValue.contains("\"") || strValue.startsWith("=")) {
-                "\"${strValue.replace("\"", "\"\"")}\""
-            } else {
-                strValue
-            }
-        }
-
-        // ----- 1. Заголовки -----
-        csvBuilder.append("Сводные результаты заездов\n\n")
-
-        val raceTitleHeader = mutableListOf<String>()
-        raceTitleHeader.addAll(List(6) { "" })
+        // Заголовки заездов с объединением ячеек
+        val raceTitleHeaderRow = sheet.createRow(rowIndex++)
+        var currentCellIndex = 6
         mergedResult.races.forEach { race ->
-            raceTitleHeader.add(escapeCsvValue("Заезд - ${race.raceTitle}"))
-            raceTitleHeader.addAll(List(3) { "" })
+            val cell = raceTitleHeaderRow.createCell(currentCellIndex)
+            cell.setCellValue("Заезд - ${race.raceTitle}")
+            sheet.addMergedRegion(
+                CellRangeAddress(
+                    rowIndex - 1,
+                    rowIndex - 1,
+                    currentCellIndex,
+                    currentCellIndex + 3
+                )
+            )
+            currentCellIndex += 4
         }
-        csvBuilder.append(raceTitleHeader.joinToString(",")).append("\n")
 
-        val mainHeader = mutableListOf(
-            "Место", "Фамилия Имя", "Город", "Техника", "Звание", "Ст. номер"
-        )
+        // Основные заголовки таблицы
+        val mainHeaderRow = sheet.createRow(rowIndex++)
+        val mainHeader = mutableListOf("Место", "Фамилия Имя", "Город", "Техника", "Звание", "Ст. номер")
         repeat(numRaces) {
             mainHeader.addAll(listOf("Место в заезде", "Круги", "Штрафы", "Очки"))
         }
         mainHeader.add("Сумма очков")
-        csvBuilder.append(mainHeader.joinToString(",") { escapeCsvValue(it) }).append("\n")
+        mainHeader.forEachIndexed { index, title -> mainHeaderRow.createCell(index).setCellValue(title) }
 
-        // ----- 2. Вычисление динамических позиций -----
-        val mainTableStartRow = 5
+        // Данные участников
+        val mainTableStartRow = rowIndex + 1
         val mainTableLastRow = mainTableStartRow + numDrivers - 1
         val pointsTableStartRow = mainTableLastRow + 3
+        val sumPointsColumnIndex = 6 + numRaces * 4
+        val sumPointsColumnLetter = CellReference.convertNumToColString(sumPointsColumnIndex)
 
-        // ----- 3. Данные участников -----
         mergedResult.drivers.forEachIndexed { idx, driverResult ->
-            val currentRow = mainTableStartRow + idx
-            val rowData = mutableListOf<String>()
+            val currentRowNum = rowIndex + idx
+            val dataRow = sheet.createRow(currentRowNum)
+            var cellIdx = 0
 
-            // === ВОЗВРАЩАЕМ ФОРМУЛУ RANK.EQ ===
-            val sumPointsColumnIndex = 6 + numRaces * 4
-            val sumPointsColumnLetter = indexToExcelColumn(sumPointsColumnIndex)
+            // Место (Формула)
             val rankRange = "\$${sumPointsColumnLetter}\$${mainTableStartRow}:\$${sumPointsColumnLetter}\$${mainTableLastRow}"
-            rowData.add(
-                escapeCsvValue("=RANK.EQ(${sumPointsColumnLetter}${currentRow}, ${rankRange}, 0)")
-            )
+            dataRow.createCell(cellIdx++).cellFormula = "RANK.EQ(${sumPointsColumnLetter}${currentRowNum + 1}, ${rankRange}, 0)"
 
             // Данные гонщика
             val driver = driverResult.driver
-            rowData.add(escapeCsvValue("${driver.lastName} ${driver.name}"))
-            rowData.add(escapeCsvValue(driver.city))
-            rowData.add(escapeCsvValue(driver.boatModel))
-            rowData.add(escapeCsvValue(driver.rank))
-            rowData.add(escapeCsvValue(driver.driverNumber))
+            dataRow.createCell(cellIdx++).setCellValue("${driver.lastName} ${driver.name}")
+            dataRow.createCell(cellIdx++).setCellValue(driver.city)
+            dataRow.createCell(cellIdx++).setCellValue(driver.boatModel)
+            dataRow.createCell(cellIdx++).setCellValue(driver.rank)
+            dataRow.createCell(cellIdx++).setCellValue(driver.driverNumber.toDouble())
 
             // Данные по заездам
             val pointsFormulaParts = mutableListOf<String>()
             for (raceIdx in 0 until numRaces) {
                 val result = driverResult.results[raceIdx]
-                rowData.add(escapeCsvValue(result.position))
-                rowData.add(escapeCsvValue(result.laps))
-                rowData.add(escapeCsvValue(result.penaltyCount))
+                dataRow.createCell(cellIdx++).setCellValue(if (result.position > 0) result.position.toDouble() else 0.0)
+                dataRow.createCell(cellIdx++).setCellValue(result.laps.toDouble())
+                dataRow.createCell(cellIdx++).setCellValue(result.penaltyCount.toDouble())
 
-                val placeColIndex = 6 + raceIdx * 4
-                val placeColLetter = indexToExcelColumn(placeColIndex)
+                // Очки (Формула)
+                val placeColLetter = CellReference.convertNumToColString(cellIdx - 4)
+                // Помещаем таблицу очков в столбцы X и Y
                 val pointsTableRange = "\$X\$${pointsTableStartRow + 1}:\$Y\$${pointsTableStartRow + 20}"
-                rowData.add(
-                    escapeCsvValue("=IF(OR(${placeColLetter}${currentRow}<=0, ${placeColLetter}${currentRow}>20), 0, VLOOKUP(${placeColLetter}${currentRow}, ${pointsTableRange}, 2, FALSE))")
-                )
+                dataRow.createCell(cellIdx++).cellFormula = "IF(OR(${placeColLetter}${currentRowNum + 1}<=0, ${placeColLetter}${currentRowNum + 1}>20), 0, VLOOKUP(${placeColLetter}${currentRowNum + 1}, ${pointsTableRange}, 2, FALSE))"
 
-                val pointsColLetter = indexToExcelColumn(placeColIndex + 3)
-                pointsFormulaParts.add("$pointsColLetter$currentRow")
+                pointsFormulaParts.add("${CellReference.convertNumToColString(cellIdx - 1)}${currentRowNum + 1}")
             }
 
-            // Формула суммы очков
-            rowData.add(escapeCsvValue("=SUM(${pointsFormulaParts.joinToString(",")})"))
-            csvBuilder.append(rowData.joinToString(",")).append("\n")
+            // Сумма очков (Формула)
+            dataRow.createCell(cellIdx++).cellFormula = "SUM(${pointsFormulaParts.joinToString(",")})"
         }
+        rowIndex += numDrivers
+        rowIndex += 2 // Пустые строки
 
-        // ----- 4. Таблица очков (внизу) -----
-        csvBuilder.append("\n\n")
-        val pointsHeaderPadding = List(23) { "" }
-        csvBuilder.append(pointsHeaderPadding.joinToString(","))
-        csvBuilder.append(",").append(escapeCsvValue("Место")).append(",").append(escapeCsvValue("Очки")).append("\n")
+        // Таблица очков для VLOOKUP (в столбцах X и Y)
+        sheet.createRow(rowIndex++).createCell(23).setCellValue("Таблица очков")
+        val pointsHeaderRow = sheet.createRow(rowIndex++)
+        pointsHeaderRow.createCell(23).setCellValue("Место")
+        pointsHeaderRow.createCell(24).setCellValue("Очки")
+
         pointsSystem.forEachIndexed { index, points ->
-            csvBuilder.append(pointsHeaderPadding.joinToString(","))
-            csvBuilder.append(",").append(escapeCsvValue(index + 1)).append(",").append(escapeCsvValue(points)).append("\n")
-        }
-
-        // ----- 5. Запись в файл -----
-        try {
-            OutputStreamWriter(file.outputStream(), StandardCharsets.UTF_16).use { it.write(csvBuilder.toString()) }
-            Toast.makeText(context, "Файл создан", Toast.LENGTH_SHORT).show()
-            setState(state.value.copy(fileExist = true))
-            doAfter(context, file)
-        } catch (e: IOException) {
-            Log.e("CreateExcel", "Ошибка записи в файл: ${e.message}")
-            Toast.makeText(context, "Ошибка создания файла", Toast.LENGTH_SHORT).show()
+            val pointsRow = sheet.createRow(rowIndex + index)
+            pointsRow.createCell(23).setCellValue((index + 1).toDouble())
+            pointsRow.createCell(24).setCellValue(points.toDouble())
         }
     }
 
-    // Остальной код ViewModel без изменений...
+    private fun createDetailedRaceSheet(workbook: Workbook, raceDetail: RaceDetailUI) {
+        // Создаем безопасное имя для листа
+        val safeSheetName = WorkbookUtil.createSafeSheetName("Заезд ${raceDetail.raceUI.raceTitle}")
+        val sheet = workbook.createSheet(safeSheetName)
+        var rowIndex = 0
+
+        fun formatMillisToTime(millis: Long): String {
+            if (millis <= 0) return "00:00.000"
+            val sdf = SimpleDateFormat("mm:ss.SSS", Locale.getDefault())
+            return sdf.format(Date(millis))
+        }
+
+        // Общая информация о заезде
+        sheet.createRow(rowIndex++).createCell(0).setCellValue("Результаты заезда от ${raceDetail.raceUI.createRace.formatTimestampToDateTimeString()}")
+        sheet.createRow(rowIndex++).createCell(0).setCellValue("Название заезда: ${raceDetail.raceUI.raceTitle}")
+        rowIndex++
+
+        // Таблица 1: Итоговые места
+        sheet.createRow(rowIndex++).createCell(0).setCellValue("Итоговые места")
+        val placements = calculateDriverPlacements(raceDetail) // Используем актуальный расчет мест
+        val pHeaderRow = sheet.createRow(rowIndex++)
+        pHeaderRow.createCell(0).setCellValue("Место")
+        pHeaderRow.createCell(1).setCellValue("Ст. номер")
+        pHeaderRow.createCell(2).setCellValue("Имя Фамилия")
+        pHeaderRow.createCell(3).setCellValue("Время")
+        pHeaderRow.createCell(4).setCellValue("Всего кругов")
+        pHeaderRow.createCell(5).setCellValue("Штрафы")
+
+        placements.forEach { placement ->
+            val row = sheet.createRow(rowIndex++)
+            row.createCell(0).setCellValue(placement.place.toDouble())
+            row.createCell(1).setCellValue(placement.driver.driverNumber.toDouble())
+            row.createCell(2).setCellValue("${placement.driver.name} ${placement.driver.lastName}")
+            row.createCell(3).setCellValue("formatMillisToTime(placement.totalDuration)")
+            row.createCell(4).setCellValue(placement.laps.toDouble())
+            row.createCell(5).setCellValue(placement.penaltyCount.toDouble())
+        }
+        rowIndex++
+
+        // Таблица 2: Время по кругам
+        sheet.createRow(rowIndex++).createCell(0).setCellValue("По времени круга")
+        val lapHeaderRow = sheet.createRow(rowIndex++)
+        lapHeaderRow.createCell(0).setCellValue("Ст. номер")
+        raceDetail.circles.forEachIndexed { index, _ ->
+            lapHeaderRow.createCell(index + 1).setCellValue("Круг ${index + 1}")
+        }
+
+        raceDetail.drivers.forEach { driver ->
+            val row = sheet.createRow(rowIndex++)
+            row.createCell(0).setCellValue(driver.driverNumber.toDouble())
+            raceDetail.circles.forEachIndexed { cIndex, circle ->
+                val driverCircle = circle.drivers.find { it.driverId == driver.driverId }
+                val time = driverCircle?.duration?.let { formatMillisToTime(it) } ?: " DNS" // DNS - Did Not Start
+
+                val cellText = when {
+                    // Эта логика кажется немного запутанной в оригинале, я упростил до ключевых состояний
+                    driverCircle == null -> "DNS" // Не проехал круг
+                    !driverCircle.useDuration -> "$time (Штраф)" // Время не засчитано, штраф
+                    else -> time // Обычное время
+                }
+                row.createCell(cIndex + 1).setCellValue(cellText)
+            }
+        }
+        rowIndex++
+
+        // Дополнительная информация
+        sheet.createRow(rowIndex++).createCell(0).setCellValue("Время заезда: ${formatMillisToTime(raceDetail.raceUI.duration)}")
+        val finishOrderRow = sheet.createRow(rowIndex++)
+        finishOrderRow.createCell(0).setCellValue("Порядок прохождения финишной линии:")
+        val finishOrder = raceDetail.raceUI.stackFinish.joinToString(", ")
+        finishOrderRow.createCell(1).setCellValue(finishOrder)
+    }
+
+    // --- ОБНОВЛЕННЫЕ ФУНКЦИИ ДЛЯ РАБОТЫ С XLSX ---
+
     fun shareFile(context: Context, file: File) {
         viewModelScope.launch {
-            val uri: Uri =
-                FileProvider.getUriForFile(
-                    context,
-                    context.applicationContext.packageName + ".provider",
-                    file
-                )
+            val uri: Uri = FileProvider.getUriForFile(
+                context,
+                context.applicationContext.packageName + ".provider",
+                file
+            )
             val intent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/csv"
+                // Правильный MIME-тип для .xlsx
+                type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 putExtra(Intent.EXTRA_EMAIL, arrayOf(state.value.settingsUI.email))
                 putExtra(
                     Intent.EXTRA_SUBJECT,
-                    """Результаты заезда "${state.value.raceDetailUI.raceUI.raceTitle}" """
+                    """Результаты заезда "${state.value.mergedResults.races.firstOrNull()?.raceTitle ?: ""}" """
                 )
-                putExtra(Intent.EXTRA_TEXT, "Результаты заезда")
+                putExtra(Intent.EXTRA_TEXT, "Результаты заезда в прикрепленном файле.")
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
@@ -366,11 +467,11 @@ class RaceTableViewModel @Inject constructor(
             if (intent.resolveActivity(context.packageManager) != null) {
                 context.startActivity(Intent.createChooser(intent, "Отправить Email"))
             } else {
-                Toast.makeText(context, "Нет приложения для отправки Email", Toast.LENGTH_LONG)
-                    .show()
+                Toast.makeText(context, "Нет приложения для отправки Email", Toast.LENGTH_LONG).show()
             }
         }
     }
+
     fun openFile(context: Context, file: File) {
         val uri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             FileProvider.getUriForFile(
@@ -383,16 +484,18 @@ class RaceTableViewModel @Inject constructor(
         }
 
         val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "text/csv")
+            // Правильный MIME-тип для .xlsx
+            setDataAndType(uri, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
         if (intent.resolveActivity(context.packageManager) != null) {
             context.startActivity(intent)
         } else {
-            Toast.makeText(context, "Нет приложения для открытия файла", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Нет приложения для открытия XLSX файла", Toast.LENGTH_LONG).show()
         }
     }
+
 
 
     private fun generateFileName(mergedResult: MergedResult): String {

@@ -5,6 +5,7 @@ import android.media.RingtoneManager
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,7 +32,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Create
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Divider
 import androidx.compose.material3.FloatingActionButton
@@ -169,23 +173,24 @@ class RaceScreen(private val raceId: Long) : Screen {
                                         rememberScrollState()
                                     )
                             ) {
-                                OutlinedTextField(value = state.searchDriver, onValueChange = {
-                                    viewModel.changeSearchPlayers(it)
-                                }, modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 16.dp), leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Search,
-                                        contentDescription = null
-                                    )
-                                }, placeholder = {
-                                    Text(
-                                        text = "Поиск участников",
-                                        style = MaterialTheme.typography.titleSmall.copy(
-                                            color = MaterialTheme.typography.titleSmall.color
+                                OutlinedTextField(
+                                    value = state.searchDriver, onValueChange = {
+                                        viewModel.changeSearchPlayers(it)
+                                    }, modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 16.dp), leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Search,
+                                            contentDescription = null
                                         )
-                                    )
-                                })
+                                    }, placeholder = {
+                                        Text(
+                                            text = "Поиск участников",
+                                            style = MaterialTheme.typography.titleSmall.copy(
+                                                color = MaterialTheme.typography.titleSmall.color
+                                            )
+                                        )
+                                    })
 
                                 LazyColumn(
                                     Modifier
@@ -248,6 +253,32 @@ class RaceScreen(private val raceId: Long) : Screen {
                     }
                 }
             }
+
+            // В UI
+            if (state.showResetConfirmation) {
+                AlertDialog(
+                    onDismissRequest = { viewModel.showResetConfirmation(false) },
+                    title = { Text("Подтверждение фальстарта") },
+                    text = { Text("Все текущие результаты будут сброшены. Вы уверены?") },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                viewModel.resetRace(raceId)
+                                viewModel.showResetConfirmation(false)
+                            }
+                        ) {
+                            Text("Да")
+                        }
+                    },
+                    dismissButton = {
+                        Button(
+                            onClick = { viewModel.showResetConfirmation(false) }
+                        ) {
+                            Text("Отмена")
+                        }
+                    }
+                )
+            }
         }
     }
 
@@ -265,23 +296,50 @@ class RaceScreen(private val raceId: Long) : Screen {
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(vertical = 5.dp)
             )
-            Button(
-                onClick = {
-                    sound(state, vib, context)
-                    viewModel.changeIsTimer()
-                },
+            Row(
                 modifier = Modifier
-                    .fillMaxWidth()
                     .padding(top = 16.dp)
-                    .height(50.dp)
-                    .width(220.dp)
+                    .fillMaxWidth()
+
             ) {
-                Text(
-                    text = if (state.startTimer) "Завершить заезд" else "Старт",
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Button(
+                    onClick = {
+                        sound(state, vib, context)
+                        viewModel.changeIsTimer()
+                    },
+                    modifier = Modifier .animateContentSize()
+                        .weight(1f)
+                        .height(50.dp) .animateContentSize()
+                ) {
+                    Text(
+                        text = if (state.startTimer) "Завершить заезд" else "Старт",
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (state.startTimer) {
+                    Spacer(Modifier.size(16.dp))
+                    Button(
+                        onClick = {
+                            viewModel.showResetConfirmation(true)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ),
+                        modifier = Modifier
+                            .width(220.dp)
+                            .height(50.dp)
+                    ) {
+                        Text(
+                            text = "Фальстарт",
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
             Divider(
                 modifier = Modifier
@@ -299,7 +357,7 @@ class RaceScreen(private val raceId: Long) : Screen {
                 items(state.selectDrivers) { driver ->
                     Column(
                         modifier = Modifier
-                            .size(100.dp)
+                            .size(120.dp)
                             .fillMaxWidth()
                             .border(
                                 width = 1.dp,

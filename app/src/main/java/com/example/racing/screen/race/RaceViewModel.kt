@@ -36,6 +36,14 @@ class RaceViewModel @Inject constructor(
         }
     }
 
+    // В ViewModel
+    fun showResetConfirmation(show: Boolean) {
+        viewModelScope.launch {
+            setState(state.value.copy(showResetConfirmation = show))
+        }
+    }
+
+
     fun loadRace(id: Long) {
         viewModelScope.launch {
             val race = raceRepositoryImpl.getRaceById(id)
@@ -215,6 +223,20 @@ class RaceViewModel @Inject constructor(
             setState(
                 state.value.copy(
                     selectDrivers = if (driverUI in state.value.selectDrivers) state.value.selectDrivers - driverUI else state.value.selectDrivers + driverUI
+                )
+            )
+        }
+    }
+
+    fun resetRace(id: Long) {
+        viewModelScope.launch {
+            val race = raceRepositoryImpl.getRaceById(id)
+            setState(
+                RaceState.InitState.copy(
+                    settings = state.value.settings,
+                    race = race,
+                    selectDrivers = raceRepositoryImpl.getDriversByRaceId(id)
+                        .map { it.toDriverCircleUI() }
                 )
             )
         }

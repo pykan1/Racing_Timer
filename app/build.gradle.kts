@@ -104,7 +104,18 @@ dependencies {
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
     ksp("com.google.dagger:hilt-compiler:2.50")
 
-//    implementation("com.grapecity.documents:gcexcel:7.1.2")
-    implementation("com.github.SUPERCILEX.poi-android:poi:3.17")
+    implementation("org.apache.poi:poi-ooxml:5.2.5")
+
+    // Явно добавляем транзитивную зависимость, чтобы избежать конфликтов
+    implementation("org.apache.poi:poi:5.2.5")
+
+    // Библиотеки для обработки XML, отсутствующие в Android
+    implementation("org.apache.xmlbeans:xmlbeans:5.1.1")
+    implementation("org.apache.commons:commons-compress:1.24.0") // Используйте свежую версию
+    implementation("org.apache.commons:commons-collections4:4.4")
+    implementation("com.github.virtuald:curvesapi:1.08")
+
+    // Провайдер StAX API (решает вашу проблему с FactoryConfigurationError)
+    implementation("org.ogce:xpp3:1.1.6")
     implementation("org.apache.commons:commons-csv:1.5")
 }
