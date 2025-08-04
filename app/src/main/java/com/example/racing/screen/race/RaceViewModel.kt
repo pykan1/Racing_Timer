@@ -51,7 +51,7 @@ class RaceViewModel @Inject constructor(
                 state.value.copy(
                     race = race,
                     selectDrivers = raceRepositoryImpl.getDriversByRaceId(id)
-                        .map { it.toDriverCircleUI() }
+                        .map { it.toDriverCircleUI() }.sortedBy { it.driverNumber }
                 )
             )
         }
@@ -236,7 +236,7 @@ class RaceViewModel @Inject constructor(
                     settings = state.value.settings,
                     race = race,
                     selectDrivers = raceRepositoryImpl.getDriversByRaceId(id)
-                        .map { it.toDriverCircleUI() }
+                        .map { it.toDriverCircleUI() }.sortedBy { it.driverNumber }
                 )
             )
         }
