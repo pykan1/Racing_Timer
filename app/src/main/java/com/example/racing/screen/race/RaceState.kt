@@ -19,12 +19,13 @@ data class RaceState(
     val driversIdStack: List<Long>,
     val saveRace: Boolean,
     val settings: SettingsUI,
-    val showResetConfirmation: Boolean = false
+    val showResetConfirmation: Boolean = false,
+    val showEndRace: Boolean = false,
 ) : UiState {
     companion object {
         val InitState = RaceState(
             RaceUI.Default,
-            "", emptyList(), emptyList(), true, 0, emptyList(), false, false, emptyList(), saveRace = false, settings = SettingsUI.Default
+            "", emptyList(), emptyList(),true, 0, emptyList(), false, false, emptyList(), saveRace = false, settings = SettingsUI.Default
         )
     }
 }

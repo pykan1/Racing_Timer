@@ -42,6 +42,12 @@ class RaceViewModel @Inject constructor(
             setState(state.value.copy(showResetConfirmation = show))
         }
     }
+    // В ViewModel
+    fun showEndRace(show: Boolean) {
+        viewModelScope.launch {
+            setState(state.value.copy(showEndRace = show))
+        }
+    }
 
 
     fun loadRace(id: Long) {

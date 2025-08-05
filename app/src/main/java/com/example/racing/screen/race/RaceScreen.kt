@@ -64,6 +64,7 @@ import com.example.racing.ext.formatSeconds
 import com.example.racing.ext.formatTimestampToDateTimeString
 import com.example.racing.screen.base.DefaultBoxPage
 import com.example.racing.screen.home.RaceAlertDialog
+import com.example.racing.screen.home.getButtonHeight
 import com.example.racing.screen.raceTable.RaceTableScreen
 import kotlinx.coroutines.delay
 
@@ -147,7 +148,7 @@ class RaceScreen(private val raceId: Long) : Screen {
                                 Button(
                                     onClick = { viewModel.driversAlert() },
                                     modifier = Modifier
-                                        .height(50.dp)
+                                        .height(getButtonHeight())
                                         .fillMaxWidth()
                                         .align(Alignment.TopCenter),
                                 ) {
@@ -235,7 +236,7 @@ class RaceScreen(private val raceId: Long) : Screen {
                                             end = 16.dp,
                                             top = 15.dp
                                         )
-                                        .height(50.dp)
+                                        .height(getButtonHeight())
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.Create,
@@ -278,6 +279,31 @@ class RaceScreen(private val raceId: Long) : Screen {
                         }
                     }
                 )
+            }   // В UI
+            if (state.showEndRace) {
+                AlertDialog(
+                    onDismissRequest = {    viewModel.showEndRace(false) },
+                    title = { Text("Подтверждение завершения заезда") },
+                    text = { Text("Все текущие результаты будут сохранены. Заезд будет закончен. Закончить?") },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                sound(state, vib, context)
+                                viewModel.changeIsTimer()
+                                viewModel.showEndRace(false)
+                            }
+                        ) {
+                            Text("Да")
+                        }
+                    },
+                    dismissButton = {
+                        Button(
+                            onClick = { viewModel.showEndRace(false) }
+                        ) {
+                            Text("Отмена")
+                        }
+                    }
+                )
             }
         }
     }
@@ -304,12 +330,18 @@ class RaceScreen(private val raceId: Long) : Screen {
             ) {
                 Button(
                     onClick = {
-                        sound(state, vib, context)
-                        viewModel.changeIsTimer()
+                        if (state.startTimer) {
+                            viewModel.showEndRace(true)
+                        } else {
+                            sound(state, vib, context)
+                            viewModel.changeIsTimer()
+                        }
                     },
-                    modifier = Modifier .animateContentSize()
+                    modifier = Modifier
+                        .animateContentSize()
                         .weight(1f)
-                        .height(50.dp) .animateContentSize()
+                        .height(getButtonHeight())
+                        .animateContentSize()
                 ) {
                     Text(
                         text = if (state.startTimer) "Завершить заезд" else "Старт",
@@ -330,7 +362,7 @@ class RaceScreen(private val raceId: Long) : Screen {
                         ),
                         modifier = Modifier
                             .width(220.dp)
-                            .height(50.dp)
+                            .height(getButtonHeight())
                     ) {
                         Text(
                             text = "Фальстарт",
@@ -348,7 +380,7 @@ class RaceScreen(private val raceId: Long) : Screen {
             )
 
             LazyVerticalGrid(
-                columns = GridCells.Fixed(10),
+                columns = GridCells.Adaptive(120.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
                 contentPadding = PaddingValues(top = 30.dp, bottom = 5.dp),

@@ -67,7 +67,7 @@ class MainTabScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 title = {
                                     Text(
-                                        text = "Circuit Race Timer Pro",
+                                        text = "Uglich-Extreme",
                                         fontSize = 18.sp,
                                         fontWeight = FontWeight.W600,
                                         maxLines = 1,

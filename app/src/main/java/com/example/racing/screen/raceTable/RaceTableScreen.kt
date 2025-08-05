@@ -42,6 +42,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.example.racing.domain.models.RaceUI
 import com.example.racing.ext.formatTimestampToDateTimeString
 import com.example.racing.screen.home.RacingScreen
+import com.example.racing.screen.home.getButtonHeight
 
 class RaceTableScreen(private val raceId: Long) : Screen {
     @Composable
@@ -195,7 +196,7 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 16.dp)
-                    .height(50.dp)
+                    .height(getButtonHeight())
             ) {
                 Text(text = "Экспорт", style = MaterialTheme.typography.titleMedium)
             }
@@ -224,7 +225,7 @@ class RaceTableScreen(private val raceId: Long) : Screen {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
-                    .height(50.dp)
+                    .height(getButtonHeight())
             ) {
                 Text(
                     text = "Скачать файл", // Всегда показываем "Скачать файл"

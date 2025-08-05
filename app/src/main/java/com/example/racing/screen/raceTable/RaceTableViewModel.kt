@@ -323,10 +323,9 @@ class RaceTableViewModel @Inject constructor(
             val dataRow = sheet.createRow(rowIndex++)
             var cellIdx = 0
 
-            // Место (Формула)
             val rankRange = "$sumPointsColumnLetter${mainTableStartRow + 1}:$sumPointsColumnLetter${mainTableLastRow + 1}"
-            dataRow.createCell(cellIdx++).cellFormula = "RANK.EQ($sumPointsColumnLetter${currentRowNum + 1}, $rankRange, 0)"
-
+            dataRow.createCell(cellIdx++).cellFormula = "IFERROR(RANK($sumPointsColumnLetter${currentRowNum + 1}, $rankRange, 0), " +
+                    "\"=RANK(\"&$sumPointsColumnLetter${currentRowNum + 1}&\", \"&ADDRESS(${mainTableStartRow + 1}, COLUMN($sumPointsColumnLetter${mainTableStartRow + 1}))&\":\"&ADDRESS($mainTableLastRow, COLUMN($sumPointsColumnLetter${mainTableLastRow}))&\", 0)\")"
             // Данные гонщика
             val driver = driverResult.driver
             dataRow.createCell(cellIdx++).setCellValue("${driver.lastName} ${driver.name}")

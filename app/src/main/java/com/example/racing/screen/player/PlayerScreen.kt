@@ -51,6 +51,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import cafe.adriel.voyager.core.screen.Screen
 import com.example.racing.screen.base.DefaultBoxPage
 import com.example.racing.screen.home.RaceAlertDialog
+import com.example.racing.screen.home.getButtonHeight
 
 class PlayerScreen : Screen {
     @Composable
@@ -237,7 +238,8 @@ class PlayerScreen : Screen {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 20.dp, start = 25.dp, end = 25.dp)
-                        .height(50.dp)
+                        .height(getButtonHeight())
+
                         .align(Alignment.BottomCenter)
                 ) {
                     Icon(imageVector = Icons.Outlined.Edit, contentDescription = null)
@@ -420,7 +422,7 @@ fun CreateDriverDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 20.dp, start = 16.dp, end = 16.dp, top = 20.dp)
-                    .height(50.dp)
+                    .height(getButtonHeight())
             ) {
                 Icon(imageVector = Icons.Outlined.Create, contentDescription = null)
                 Text(

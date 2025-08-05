@@ -47,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -103,7 +104,8 @@ class RacingScreen : Screen {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 20.dp, start = 25.dp, end = 25.dp)
-                        .height(50.dp)
+                        .height(getButtonHeight())
+
                         .align(Alignment.BottomCenter)
                 ) {
                     Icon(imageVector = Icons.Outlined.Edit, contentDescription = null)
@@ -189,7 +191,7 @@ class RacingScreen : Screen {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = 20.dp, start = 16.dp, end = 16.dp, top = 15.dp)
-                                .height(50.dp)
+                                .height(getButtonHeight())
                         ) {
                             Icon(imageVector = Icons.Outlined.Create, contentDescription = null)
                             Text(
@@ -339,4 +341,10 @@ internal fun RaceAlertDialog(
             content?.invoke()
         }
     }
+}
+
+
+@Composable
+fun getButtonHeight(): Dp {
+    return 65.dp
 }
