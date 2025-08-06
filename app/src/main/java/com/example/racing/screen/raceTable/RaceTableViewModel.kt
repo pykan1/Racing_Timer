@@ -315,6 +315,7 @@ class RaceTableViewModel @Inject constructor(
             mainHeader.addAll(listOf("Место в заезде", "Круги", "Штрафы", "Очки"))
         }
         mainHeader.add("Сумма очков")
+        mainHeader.add("Sort Key") // Добавляем заголовок для Sort Key
         mainHeader.forEachIndexed { index, title ->
             mainHeaderRow.createCell(index).setCellValue(title)
         }
@@ -325,54 +326,23 @@ class RaceTableViewModel @Inject constructor(
         val pointsTableStartRow = mainTableLastRow + 3
         val sumPointsColumnIndex = 6 + numRaces * 4
         val sumPointsColumnLetter = CellReference.convertNumToColString(sumPointsColumnIndex)
+        val sortKeyColumnIndex = sumPointsColumnIndex + 1
+        val sortKeyColumnLetter = CellReference.convertNumToColString(sortKeyColumnIndex)
+        val sortKeyRange = "${sortKeyColumnLetter}${mainTableStartRow + 1}:${sortKeyColumnLetter}${mainTableLastRow + 1}"
 
-        // Определяем столбцы с местами в заездах для формулы ранжирования
+        // Определяем столбцы с местами в заездах
         val racePositionColumns = (0 until numRaces).map { i ->
             CellReference.convertNumToColString(6 + i * 4)
         }
 
+        // База для системы счисления
+        val base = (numDrivers + 2).toDouble()
+        val totalPointsMultiplier = Math.pow(base, numRaces.toDouble()).toLong()
+
         mergedResult.drivers.forEachIndexed { idx, driverResult ->
-            val excelRowNum = rowIndex + 1 // 1-based row number for formulas
+            val excelRowNum = rowIndex + 1 // 1-based row number для формул
             val dataRow = sheet.createRow(rowIndex++)
-            var cellIdx = 0
-
-// --- ИСПРАВЛЕННАЯ ФОРМУЛА ДЛЯ ВЫЧИСЛЕНИЯ МЕСТА ---
-            val totalPointsRange =
-                "\$${sumPointsColumnLetter}\$${mainTableStartRow + 1}:\$${sumPointsColumnLetter}\$${mainTableLastRow + 1}"
-            val totalPointsCell = "$sumPointsColumnLetter$excelRowNum"
-
-// База для системы счисления. Должна быть больше, чем максимальное возможное место + 1.
-            val base = (numDrivers + 2).toDouble()
-// Множитель для главного критерия (очки), имеет наивысший приоритет.
-            val totalPointsMultiplier = Math.pow(base, numRaces.toDouble()).toLong()
-
-// Собираем строку формулы для "ключа сортировки" текущей строки
-            var currentKeyFormula = "($totalPointsCell * $totalPointsMultiplier)"
-// Собираем строку формулы для массива "ключей сортировки" всего диапазона
-            var keyArrayFormula = "($totalPointsRange * $totalPointsMultiplier)"
-
-// Добавляем критерии по заездам в обратном порядке (от последнего к первому),
-// где последний заезд имеет наибольший вес для разрешения ничьей.
-            for (power in numRaces - 1 downTo 0) { // power будет n-1, n-2, ..., 0
-                // Индекс столбца соответствует степени, так как racePositionColumns[n-1] - это последний заезд
-                val posColLetter = racePositionColumns[power]
-                val posRange =
-                    "\$${posColLetter}\$${mainTableStartRow + 1}:\$${posColLetter}\$${mainTableLastRow + 1}"
-                val posCell = "$posColLetter$excelRowNum"
-                val positionMultiplier = Math.pow(base, power.toDouble()).toLong()
-
-                // Добавляем значение, основанное на месте. Меньшее место лучше, поэтому оно должно добавлять большее значение.
-                // Используем (база - место). DNF (место=0) должен дать наименьшее значение (0).
-                val term = "IF($posCell=0, 0, $base - $posCell)"
-                val arrayTerm = "IF($posRange=0, 0, $base - $posRange)"
-
-                currentKeyFormula += " + ($term * $positionMultiplier)"
-                keyArrayFormula += " + ($arrayTerm * $positionMultiplier)"
-            }
-
-// Финальная формула: 1 + количество гонщиков, у которых "ключ сортировки" больше, чем у текущего.
-            val rankFormula = "SUMPRODUCT(--((${keyArrayFormula}) > (${currentKeyFormula}))) + 1"
-            dataRow.createCell(cellIdx++).cellFormula = rankFormula
+            var cellIdx = 1 // Начинаем с 1, так как место (0) зададим позже
 
             // Данные гонщика
             val driver = driverResult.driver
@@ -386,13 +356,13 @@ class RaceTableViewModel @Inject constructor(
             val pointsFormulaParts = mutableListOf<String>()
             for (raceIdx in 0 until numRaces) {
                 val result = driverResult.results[raceIdx]
+                val placeColLetter = CellReference.convertNumToColString(cellIdx)
                 dataRow.createCell(cellIdx++)
                     .setCellValue(if (result.position > 0) result.position.toDouble() else 0.0)
                 dataRow.createCell(cellIdx++).setCellValue(result.laps.toDouble())
                 dataRow.createCell(cellIdx++).setCellValue(result.penaltyCount.toDouble())
 
                 // Очки (Формула)
-                val placeColLetter = CellReference.convertNumToColString(cellIdx - 3)
                 val pointsColLetter = CellReference.convertNumToColString(cellIdx)
                 dataRow.createCell(cellIdx++).cellFormula =
                     "IF(OR(${placeColLetter}${excelRowNum}<=0, " +
@@ -404,7 +374,22 @@ class RaceTableViewModel @Inject constructor(
             }
 
             // Сумма очков (Формула)
-            dataRow.createCell(cellIdx).cellFormula = "SUM(${pointsFormulaParts.joinToString(",")})"
+            dataRow.createCell(sumPointsColumnIndex).cellFormula = "SUM(${pointsFormulaParts.joinToString(",")})"
+
+            // Формула Sort Key
+            val sortKeyFormulaParts = mutableListOf<String>()
+            sortKeyFormulaParts.add("(${sumPointsColumnLetter}${excelRowNum} * $totalPointsMultiplier)")
+            for (power in numRaces - 1 downTo 0) {
+                val posColLetter = racePositionColumns[power]
+                val posCell = "$posColLetter$excelRowNum"
+                val positionMultiplier = Math.pow(base, power.toDouble()).toLong()
+                sortKeyFormulaParts.add("(IF($posCell=0, 0, $base - $posCell) * $positionMultiplier)")
+            }
+            val sortKeyFormula = sortKeyFormulaParts.joinToString(" + ")
+            dataRow.createCell(sortKeyColumnIndex).cellFormula = sortKeyFormula
+
+            // Формула для места
+            dataRow.createCell(0).cellFormula = "RANK(${sortKeyColumnLetter}${excelRowNum}, $sortKeyRange, 0)"
         }
 
         // Пустые строки перед таблицей очков
@@ -414,8 +399,7 @@ class RaceTableViewModel @Inject constructor(
         val pointsTableRange = "X${pointsTableStartRow + 1}:Y${pointsTableStartRow + 20}"
         val name = workbook.createName()
         name.nameName = "PointsTable"
-        name.refersToFormula =
-            "'Сводные результаты'!$pointsTableRange" // Добавил имя листа для надежности
+        name.refersToFormula = "'Сводные результаты'!$pointsTableRange"
 
         // Таблица очков для VLOOKUP
         val pointsHeaderRow = sheet.createRow(rowIndex++)
@@ -427,8 +411,10 @@ class RaceTableViewModel @Inject constructor(
             pointsRow.createCell(23).setCellValue((index + 1).toDouble())
             pointsRow.createCell(24).setCellValue(points.toDouble())
         }
-    }
 
+        // Опционально: скрываем столбец Sort Key для аккуратности
+        sheet.setColumnHidden(sortKeyColumnIndex, true)
+    }
     private fun createDetailedRaceSheet(workbook: Workbook, raceDetail: RaceDetailUI) {
         // Создаем безопасное имя для листа
         val safeSheetName = WorkbookUtil.createSafeSheetName("Заезд ${raceDetail.raceUI.raceTitle}")
