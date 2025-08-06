@@ -66,7 +66,7 @@ class PlayerScreen : Screen {
             ) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = 16.dp, bottom = 50.dp),
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp),
                 ) {
                     items(state.drivers) {
                         Column(

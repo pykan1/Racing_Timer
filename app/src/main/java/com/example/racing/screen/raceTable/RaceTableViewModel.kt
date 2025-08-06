@@ -46,8 +46,10 @@ class RaceTableViewModel @Inject constructor(
     BaseViewModel<RaceTableState>(RaceTableState.InitState) {
     // Добавляем состояние для объединенных заездов
     private var mergedRaces = mutableListOf<Long>()
+
     // Таблица очков UIM (20 значений)
-    private val pointsSystem = listOf(25, 20, 16, 13, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0, 0, 0)
+    private val pointsSystem =
+        listOf(25, 20, 16, 13, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0, 0, 0)
 
     fun loadRace(id: Long, context: Context) {
         viewModelScope.launch {
@@ -80,7 +82,9 @@ class RaceTableViewModel @Inject constructor(
         var nonPenaltyCircles: Int = 0,
         var penaltyCircles: Int = 0,
         var totalDuration: Long = 0
-    ) { override fun toString(): String = secondsToTime(totalDuration) }
+    ) {
+        override fun toString(): String = secondsToTime(totalDuration)
+    }
 
     private data class DriverPlacement(
         val driver: DriverUI,
@@ -95,7 +99,8 @@ class RaceTableViewModel @Inject constructor(
         raceDetail.circles.forEach { circle ->
             circle.drivers.forEach { driver ->
                 if (raceDetail.drivers.any { it.driverId == driver.driverId }) {
-                    val stats = driverStatsMap.getOrPut(driver.driverId) { DriverStats(driver.driverId) }
+                    val stats =
+                        driverStatsMap.getOrPut(driver.driverId) { DriverStats(driver.driverId) }
                     if (!driver.useDuration) {
                         stats.penaltyCircles++
                     } else {
@@ -204,7 +209,7 @@ class RaceTableViewModel @Inject constructor(
         val firstRace = mergedRaces.firstOrNull()?.let { raceRepositoryImpl.getRaceDetail(it) }
         val title = firstRace?.raceUI?.raceTitle?.replace(Regex("[/\\\\?%*:|\"<>]"), "_") ?: "Race"
         val dateFormat = SimpleDateFormat("dd:MM:yyyy_HH:mm:ss", Locale.getDefault())
-        return "${title}_финал_${dateFormat.format(Date())}.xlsx"
+        return "${title}${if (mergedRaces.size > 1) "_финал" else ""}_${dateFormat.format(Date())}.xlsx"
     }
 
     fun createExcelFile(context: Context, doAfter: (Context, File) -> Unit = { _, _ -> }) {
@@ -304,12 +309,15 @@ class RaceTableViewModel @Inject constructor(
 
         // Основные заголовки таблицы
         val mainHeaderRow = sheet.createRow(rowIndex++)
-        val mainHeader = mutableListOf("Место", "Фамилия Имя", "Город", "Техника", "Звание", "Ст. номер")
+        val mainHeader =
+            mutableListOf("Место", "Фамилия Имя", "Город", "Техника", "Звание", "Ст. номер")
         repeat(numRaces) {
             mainHeader.addAll(listOf("Место в заезде", "Круги", "Штрафы", "Очки"))
         }
         mainHeader.add("Сумма очков")
-        mainHeader.forEachIndexed { index, title -> mainHeaderRow.createCell(index).setCellValue(title) }
+        mainHeader.forEachIndexed { index, title ->
+            mainHeaderRow.createCell(index).setCellValue(title)
+        }
 
         // Данные участников
         val mainTableStartRow = rowIndex
@@ -318,14 +326,54 @@ class RaceTableViewModel @Inject constructor(
         val sumPointsColumnIndex = 6 + numRaces * 4
         val sumPointsColumnLetter = CellReference.convertNumToColString(sumPointsColumnIndex)
 
+        // Определяем столбцы с местами в заездах для формулы ранжирования
+        val racePositionColumns = (0 until numRaces).map { i ->
+            CellReference.convertNumToColString(6 + i * 4)
+        }
+
         mergedResult.drivers.forEachIndexed { idx, driverResult ->
-            val currentRowNum = rowIndex
+            val excelRowNum = rowIndex + 1 // 1-based row number for formulas
             val dataRow = sheet.createRow(rowIndex++)
             var cellIdx = 0
 
-            val rankRange = "$sumPointsColumnLetter${mainTableStartRow + 1}:$sumPointsColumnLetter${mainTableLastRow + 1}"
-            dataRow.createCell(cellIdx++).cellFormula = "IFERROR(RANK($sumPointsColumnLetter${currentRowNum + 1}, $rankRange, 0), " +
-                    "\"=RANK(\"&$sumPointsColumnLetter${currentRowNum + 1}&\", \"&ADDRESS(${mainTableStartRow + 1}, COLUMN($sumPointsColumnLetter${mainTableStartRow + 1}))&\":\"&ADDRESS($mainTableLastRow, COLUMN($sumPointsColumnLetter${mainTableLastRow}))&\", 0)\")"
+// --- ИСПРАВЛЕННАЯ ФОРМУЛА ДЛЯ ВЫЧИСЛЕНИЯ МЕСТА ---
+            val totalPointsRange =
+                "\$${sumPointsColumnLetter}\$${mainTableStartRow + 1}:\$${sumPointsColumnLetter}\$${mainTableLastRow + 1}"
+            val totalPointsCell = "$sumPointsColumnLetter$excelRowNum"
+
+// База для системы счисления. Должна быть больше, чем максимальное возможное место + 1.
+            val base = (numDrivers + 2).toDouble()
+// Множитель для главного критерия (очки), имеет наивысший приоритет.
+            val totalPointsMultiplier = Math.pow(base, numRaces.toDouble()).toLong()
+
+// Собираем строку формулы для "ключа сортировки" текущей строки
+            var currentKeyFormula = "($totalPointsCell * $totalPointsMultiplier)"
+// Собираем строку формулы для массива "ключей сортировки" всего диапазона
+            var keyArrayFormula = "($totalPointsRange * $totalPointsMultiplier)"
+
+// Добавляем критерии по заездам в обратном порядке (от последнего к первому),
+// где последний заезд имеет наибольший вес для разрешения ничьей.
+            for (power in numRaces - 1 downTo 0) { // power будет n-1, n-2, ..., 0
+                // Индекс столбца соответствует степени, так как racePositionColumns[n-1] - это последний заезд
+                val posColLetter = racePositionColumns[power]
+                val posRange =
+                    "\$${posColLetter}\$${mainTableStartRow + 1}:\$${posColLetter}\$${mainTableLastRow + 1}"
+                val posCell = "$posColLetter$excelRowNum"
+                val positionMultiplier = Math.pow(base, power.toDouble()).toLong()
+
+                // Добавляем значение, основанное на месте. Меньшее место лучше, поэтому оно должно добавлять большее значение.
+                // Используем (база - место). DNF (место=0) должен дать наименьшее значение (0).
+                val term = "IF($posCell=0, 0, $base - $posCell)"
+                val arrayTerm = "IF($posRange=0, 0, $base - $posRange)"
+
+                currentKeyFormula += " + ($term * $positionMultiplier)"
+                keyArrayFormula += " + ($arrayTerm * $positionMultiplier)"
+            }
+
+// Финальная формула: 1 + количество гонщиков, у которых "ключ сортировки" больше, чем у текущего.
+            val rankFormula = "SUMPRODUCT(--((${keyArrayFormula}) > (${currentKeyFormula}))) + 1"
+            dataRow.createCell(cellIdx++).cellFormula = rankFormula
+
             // Данные гонщика
             val driver = driverResult.driver
             dataRow.createCell(cellIdx++).setCellValue("${driver.lastName} ${driver.name}")
@@ -338,19 +386,21 @@ class RaceTableViewModel @Inject constructor(
             val pointsFormulaParts = mutableListOf<String>()
             for (raceIdx in 0 until numRaces) {
                 val result = driverResult.results[raceIdx]
-                dataRow.createCell(cellIdx++).setCellValue(if (result.position > 0) result.position.toDouble() else 0.0)
+                dataRow.createCell(cellIdx++)
+                    .setCellValue(if (result.position > 0) result.position.toDouble() else 0.0)
                 dataRow.createCell(cellIdx++).setCellValue(result.laps.toDouble())
                 dataRow.createCell(cellIdx++).setCellValue(result.penaltyCount.toDouble())
 
                 // Очки (Формула)
                 val placeColLetter = CellReference.convertNumToColString(cellIdx - 3)
                 val pointsColLetter = CellReference.convertNumToColString(cellIdx)
-                dataRow.createCell(cellIdx++).cellFormula = "IF(OR($placeColLetter${currentRowNum + 1}<=0, " +
-                        "$placeColLetter${currentRowNum + 1}>20), 0, " +
-                        "VLOOKUP($placeColLetter${currentRowNum + 1}, " +
-                        "\$X\$${pointsTableStartRow + 1}:\$Y\$${pointsTableStartRow + 20}, 2, FALSE))"
+                dataRow.createCell(cellIdx++).cellFormula =
+                    "IF(OR(${placeColLetter}${excelRowNum}<=0, " +
+                            "${placeColLetter}${excelRowNum}>20), 0, " +
+                            "VLOOKUP(${placeColLetter}${excelRowNum}, " +
+                            "\$X\$${pointsTableStartRow + 1}:\$Y\$${pointsTableStartRow + 20}, 2, FALSE))"
 
-                pointsFormulaParts.add("$pointsColLetter${currentRowNum + 1}")
+                pointsFormulaParts.add("$pointsColLetter${excelRowNum}")
             }
 
             // Сумма очков (Формула)
@@ -364,7 +414,8 @@ class RaceTableViewModel @Inject constructor(
         val pointsTableRange = "X${pointsTableStartRow + 1}:Y${pointsTableStartRow + 20}"
         val name = workbook.createName()
         name.nameName = "PointsTable"
-        name.refersToFormula = "${sheet.sheetName}!$pointsTableRange"
+        name.refersToFormula =
+            "'Сводные результаты'!$pointsTableRange" // Добавил имя листа для надежности
 
         // Таблица очков для VLOOKUP
         val pointsHeaderRow = sheet.createRow(rowIndex++)
@@ -391,8 +442,10 @@ class RaceTableViewModel @Inject constructor(
 //        }
 
         // Общая информация о заезде
-        sheet.createRow(rowIndex++).createCell(0).setCellValue("Результаты заезда от ${raceDetail.raceUI.createRace.formatTimestampToDateTimeString()}")
-        sheet.createRow(rowIndex++).createCell(0).setCellValue("Название заезда: ${raceDetail.raceUI.raceTitle}")
+        sheet.createRow(rowIndex++).createCell(0)
+            .setCellValue("Результаты заезда от ${raceDetail.raceUI.createRace.formatTimestampToDateTimeString()}")
+        sheet.createRow(rowIndex++).createCell(0)
+            .setCellValue("Название заезда: ${raceDetail.raceUI.raceTitle}")
         rowIndex++
 
         // Таблица 1: Итоговые места
@@ -435,7 +488,8 @@ class RaceTableViewModel @Inject constructor(
             row.createCell(0).setCellValue(driver.driverNumber.toDouble())
             raceDetail.circles.forEachIndexed { cIndex, circle ->
                 val driverCircle = circle.drivers.find { it.driverId == driver.driverId }
-                val time = driverCircle?.duration?.let { secondsToTime(it) } ?: "-" // DNS - Did Not Start
+                val time =
+                    driverCircle?.duration?.let { secondsToTime(it) } ?: "-" // DNS - Did Not Start
 
                 val cellText = when {
                     // Эта логика кажется немного запутанной в оригинале, я упростил до ключевых состояний
@@ -449,7 +503,8 @@ class RaceTableViewModel @Inject constructor(
         rowIndex++
 
         // Дополнительная информация
-        sheet.createRow(rowIndex++).createCell(0).setCellValue("Время заезда: ${secondsToTime(raceDetail.raceUI.duration)}")
+        sheet.createRow(rowIndex++).createCell(0)
+            .setCellValue("Время заезда: ${secondsToTime(raceDetail.raceUI.duration)}")
         val finishOrderRow = sheet.createRow(rowIndex++)
         finishOrderRow.createCell(0).setCellValue("Порядок прохождения финишной линии:")
         val finishOrder = raceDetail.raceUI.stackFinish.joinToString(", ")
@@ -481,7 +536,8 @@ class RaceTableViewModel @Inject constructor(
             if (intent.resolveActivity(context.packageManager) != null) {
                 context.startActivity(Intent.createChooser(intent, "Отправить Email"))
             } else {
-                Toast.makeText(context, "Нет приложения для отправки Email", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Нет приложения для отправки Email", Toast.LENGTH_LONG)
+                    .show()
             }
         }
     }
@@ -506,10 +562,10 @@ class RaceTableViewModel @Inject constructor(
         if (intent.resolveActivity(context.packageManager) != null) {
             context.startActivity(intent)
         } else {
-            Toast.makeText(context, "Нет приложения для открытия XLSX файла", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Нет приложения для открытия XLSX файла", Toast.LENGTH_LONG)
+                .show()
         }
     }
-
 
 
     private fun generateFileName(mergedResult: MergedResult): String {
@@ -548,10 +604,12 @@ class RaceTableViewModel @Inject constructor(
         viewModelScope.launch {
             if (show) {
                 val availableRaces = raceRepositoryImpl.getFinishedRacesExcept(mergedRaces)
-                setState(state.value.copy(
-                    showRaceSelection = true,
-                    availableRaces = availableRaces
-                ))
+                setState(
+                    state.value.copy(
+                        showRaceSelection = true,
+                        availableRaces = availableRaces
+                    )
+                )
             } else {
                 setState(state.value.copy(showRaceSelection = false))
             }
@@ -564,6 +622,7 @@ class RaceTableViewModel @Inject constructor(
         }
     }
 }
+
 private fun secondsToTime(totalSeconds: Long): String {
     return totalSeconds.formatSeconds()
 }
