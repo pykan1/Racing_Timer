@@ -99,6 +99,24 @@ class RaceRepositoryImpl @Inject constructor(
         }
     }
 
+    suspend fun deleteDriverInRace(idRace: Long, driverId: Long) {
+        raceDriverCrossRefRepository.deleteCrossRef(
+            RaceDriverCrossRefModel(
+                raceId = idRace,
+                driverId = driverId
+            )
+        )
+    }
+
+    suspend fun addDriverInRace(idRace: Long, driverId: Long) {
+        raceDriverCrossRefRepository.insertCrossRef(
+            RaceDriverCrossRefModel(
+                raceId = idRace,
+                driverId = driverId
+            )
+        )
+    }
+
     suspend fun getDrivers(): List<DriverUI> {
         return driverRepository.getDrivers().map { it.toUI() }
     }
