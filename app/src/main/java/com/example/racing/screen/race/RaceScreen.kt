@@ -83,6 +83,7 @@ class RaceScreen(private val raceId: Long) : Screen {
         val vib = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         LaunchedEffect(viewModel) {
             viewModel.loadRace(raceId)
+            viewModel.loadPlayers()
         }
 
         LaunchedEffect(key1 = state.startTimer, key2 = state.seconds) {

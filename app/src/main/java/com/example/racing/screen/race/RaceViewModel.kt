@@ -49,6 +49,16 @@ class RaceViewModel @Inject constructor(
         }
     }
 
+    fun loadPlayers() {
+        viewModelScope.launch {
+            val drivers = raceRepositoryImpl.getDrivers()
+            setState(
+                state.value.copy(
+                    drivers = drivers.map { it.toDriverCircleUI() }
+                )
+            )
+        }
+    }
 
     fun loadRace(id: Long) {
         viewModelScope.launch {
