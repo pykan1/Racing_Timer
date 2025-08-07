@@ -30,6 +30,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Create
 import androidx.compose.material3.AlertDialog
@@ -51,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -98,26 +100,44 @@ class RaceScreen(private val raceId: Long) : Screen {
 
         DefaultBoxPage {
             Scaffold(floatingActionButton = {
-                state.circles.findLast {
-                    (state.driversIdStack.lastOrNull() ?: -1) in it.drivers.map { it.driverNumber }
-                }?.let { circle ->
-                    circle.drivers.find {
-                        it.driverNumber == (state.driversIdStack.lastOrNull() ?: -1)
-                    }?.let {
-                        if (it.useDuration) {
-                            FloatingActionButton(
-                                modifier = Modifier.size(155.dp),
-                                onClick = {
-                                    sound(state = state, context = context, vib = vib)
-                                    viewModel.minusCircle(driverUI = it)
+                if (state.startTimer) {
+                    state.circles.findLast {
+                        (state.driversIdStack.lastOrNull()
+                            ?: -1) in it.drivers.map { it.driverNumber }
+                    }?.let { circle ->
+                        circle.drivers.find {
+                            it.driverNumber == (state.driversIdStack.lastOrNull() ?: -1)
+                        }?.let {
+                            if (it.useDuration) {
+                                FloatingActionButton(
+                                    modifier = Modifier.size(155.dp),
+                                    onClick = {
+                                        sound(state = state, context = context, vib = vib)
+                                        viewModel.minusCircle(driverUI = it)
+                                    }
+                                ) {
+                                    Text(
+                                        text = "ШТРАФ (${it.driverNumber})",
+                                        style = MaterialTheme.typography.titleLarge
+                                    )
                                 }
-                            ) {
-                                Text(
-                                    text = "ШТРАФ (${it.driverNumber})",
-                                    style = MaterialTheme.typography.titleLarge
-                                )
                             }
                         }
+                    }
+                } else {
+                    FloatingActionButton(
+                        modifier = Modifier.size(72.dp),
+                        onClick = {
+                            viewModel.driversAlert()
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            modifier = Modifier
+                                .size(44.dp)
+                                .align(Alignment.Center),
+                            contentDescription = null
+                        )
                     }
                 }
             }) {
@@ -129,12 +149,12 @@ class RaceScreen(private val raceId: Long) : Screen {
                         .padding(it),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    when (state.saveDrivers) {
-                        true -> {
+                    when (state.selectDrivers.isEmpty()) {
+                        false -> {
                             RaceTimerContent(viewModel, state)
                         }
 
-                        false -> {
+                        true -> {
                             Box(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "Перед началом заезда, выберите участников из базы",
@@ -282,7 +302,7 @@ class RaceScreen(private val raceId: Long) : Screen {
             }   // В UI
             if (state.showEndRace) {
                 AlertDialog(
-                    onDismissRequest = {    viewModel.showEndRace(false) },
+                    onDismissRequest = { viewModel.showEndRace(false) },
                     title = { Text("Подтверждение завершения заезда") },
                     text = { Text("Все текущие результаты будут сохранены. Заезд будет закончен. Закончить?") },
                     confirmButton = {
