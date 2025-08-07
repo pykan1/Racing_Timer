@@ -32,22 +32,6 @@ fun RootApp() {
                 SlideTransition(it)
             }
         }
-        Text(
-            text = "@Karman4ix",
-            fontSize = 30.sp,
-            color = Color.Black.copy(alpha = 0.6f),
-            modifier = Modifier.align(
-                Alignment.Center
-            )
-        )
-        Text(
-            text = "@Karman4ix",
-            fontSize = 30.sp,
-            color = Color.White.copy(alpha = 0.6f),
-            modifier = Modifier.padding(top = 50.dp).align(
-                Alignment.Center
-            )
-        )
 
     }
 
