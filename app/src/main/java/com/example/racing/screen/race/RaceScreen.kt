@@ -72,8 +72,6 @@ import kotlinx.coroutines.delay
 
 class RaceScreen(private val raceId: Long) : Screen {
 
-    override val key: ScreenKey = raceId.toString()
-
     @Composable
     override fun Content() {
         val viewModel = hiltViewModel<RaceViewModel>()
@@ -81,7 +79,8 @@ class RaceScreen(private val raceId: Long) : Screen {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val vib = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        LaunchedEffect(viewModel) {
+        LaunchedEffect(Unit) {
+            println("LaunchedEffect - LaunchedEffect")
             viewModel.loadPlayers()
             viewModel.loadRace(raceId)
         }

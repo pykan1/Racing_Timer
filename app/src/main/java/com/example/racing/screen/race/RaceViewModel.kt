@@ -9,6 +9,7 @@ import com.example.racing.domain.models.DriverCircleUI
 import com.example.racing.ext.getCurrentTimeInMillis
 import com.example.racing.screen.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -51,8 +52,10 @@ class RaceViewModel @Inject constructor(
     }
 
     fun loadPlayers() {
-        viewModelScope.launch(Dispatchers.IO) {
+        println("loadPlayers")
+        CoroutineScope(Dispatchers.IO).launch() {
             val drivers = raceRepositoryImpl.getDrivers()
+            println("loadPlayers - drivers - $drivers")
             setState(
                 state.value.copy(
                     drivers = drivers.map { it.toDriverCircleUI() }
@@ -62,7 +65,7 @@ class RaceViewModel @Inject constructor(
     }
 
     fun loadRace(id: Long) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val race = raceRepositoryImpl.getRaceById(id)
             setState(
                 state.value.copy(
@@ -176,7 +179,8 @@ class RaceViewModel @Inject constructor(
     }
 
     fun driversAlert() {
-        viewModelScope.launch {
+        loadPlayers()
+        viewModelScope.launch(Dispatchers.IO) {
             setState(
                 state.value.copy(
                     driversAlert = !state.value.driversAlert
